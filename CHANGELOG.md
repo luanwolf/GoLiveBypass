@@ -4,6 +4,11 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.6] - 2026-09-06
+
+### Alterado
+- Release para validar o aviso de atualização a partir da 2.1.5.
+
 ## [2.1.5] - 2026-09-06
 
 ### Adicionado
