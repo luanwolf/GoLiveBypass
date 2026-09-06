@@ -24,7 +24,7 @@ import { request } from "https";
 import { attemptReplace, cleanupOldExe, OLD_SUFFIX, spawnWindowsUpdateHelper } from "./updater-replace";
 import { escolherRelease, type Canal, type ReleaseCandidata } from "./updater-channel";
 
-const REPO = "bezumiya/GoLiveBypass";
+const REPO = "luanwolf/GoLiveBypass";
 // O artifactName leva a versao (GoLiveBypass-1.1.5.exe): o AppImageLauncher e
 // outros integradores nao sobrescrevem o arquivo quando o nome muda por versao.
 const EXE_PREFIX = "GoLiveBypass-";
@@ -250,13 +250,6 @@ export function setupUpdater(
   isAutoUpdateEnabled: () => boolean = () => true,
   canalAtual: () => Canal = () => "stable",
 ) {
-  // Fork: nao consulta o GitHub original nem baixa update. Os parametros
-  // ficam no signature pra nao quebrar o caller; o corpo abaixo nao roda.
-  void getMainWindow;
-  void isAutoUpdateEnabled;
-  void canalAtual;
-  return;
-
   // Em desenvolvimento nao existe um AppImage/portable que possa receber update. Forcar
   // electron-updater a usar dev-app-update.yml fazia o npm run dev consultar uma release
   // com a versao local (ex.: v1.1.12-dev.8) e registrar um 404 ruidoso no terminal.
@@ -393,7 +386,7 @@ export async function checkWindowsUpdate(
         title: "A atualização não rolou",
         message: `Não deu pra instalar o GoLiveBypass ${latest}.`,
         detail:
-          "A versão atual continua no ar. Tenta de novo daqui a pouco, ou baixa a nova na mão em github.com/bezumiya/GoLiveBypass/releases.",
+          "A versão atual continua no ar. Tenta de novo daqui a pouco, ou baixa a nova em github.com/luanwolf/GoLiveBypass/releases.",
         buttons: ["OK"],
       };
       if (win) await dialog.showMessageBox(win, aviso);

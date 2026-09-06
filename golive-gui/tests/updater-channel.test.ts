@@ -85,18 +85,20 @@ describe("escolherRelease (candidata de update por canal)", () => {
 });
 
 describe("wiring do canal no updater e no workflow", () => {
-  it("nao consulta o GitHub original nem liga o updater", () => {
+  it("consulta o fork luanwolf e liga o updater no boot", () => {
     const updater = fs.readFileSync(path.resolve(process.cwd(), "electron/updater.ts"), "utf8");
-    const setup = updater.slice(updater.indexOf("export function setupUpdater"), updater.indexOf("export function setupUpdater") + 900);
-    expect(setup).toContain("nao consulta o GitHub original");
-    const firstReturn = setup.indexOf("return;");
-    const githubCall = setup.indexOf("githubReleases");
-    expect(firstReturn).toBeGreaterThan(0);
-    expect(githubCall).toBe(-1);
+    expect(updater).toContain('const REPO = "luanwolf/GoLiveBypass"');
+    expect(updater).not.toContain("bezumiya/GoLiveBypass");
+    const setup = updater.slice(
+      updater.indexOf("export function setupUpdater"),
+      updater.indexOf("export async function checkWindowsUpdate"),
+    );
+    expect(setup).not.toContain("nao consulta o GitHub original");
+    expect(setup).toContain("checkWindowsUpdate");
 
     const main = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
-    expect(main).not.toContain("setupUpdater(");
-    expect(main).toMatch(/export function readAutoUpdate\(\)[\s\S]*?return false;/);
+    expect(main).toContain("setupUpdater(");
+    expect(main).toMatch(/export function readAutoUpdate\(\)[\s\S]*?return true;/);
   });
 
   it("o workflow publica prerelease no canal beta e pula mac/assets", () => {

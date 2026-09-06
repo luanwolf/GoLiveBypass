@@ -4,6 +4,11 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.4] - 2026-09-06
+
+### Adicionado
+- **Aviso de atualização:** a GUI consulta as releases do fork `luanwolf/GoLiveBypass`. Quando sai versão nova, aparece um pop-up para baixar e trocar o `.exe` (ligado por padrão; dá para desligar em Ajustes).
+
 ## [2.1.3] - 2026-09-06
 
 ### Alterado

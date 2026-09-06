@@ -60,6 +60,7 @@ describe("controles Proton", () => {
     expect(html).toContain("Se o envio de foto no chat travar");
     expect(html).toContain('id="bugCopyDiag"');
     expect(html).not.toContain("github.com/bezumiya/GoLiveBypass");
-    expect(html).toContain('settings-section--behavior" hidden');
+    expect(html).toContain("Avisar sobre atualizações");
+    expect(html).not.toContain('settings-section--behavior" hidden');
   });
 });

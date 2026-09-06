@@ -17,7 +17,7 @@ import fs from "fs";
 import { createHash } from "crypto";
 import { execFileSync, execSync, spawn, spawnSync } from "child_process";
 import { runScript } from "./linux-helper";
-import { isQuittingForUpdate } from "./updater";
+import { setupUpdater, isQuittingForUpdate } from "./updater";
 import * as logger from "./logger";
 import * as discordscan from "./discordscan";
 import * as logsDir from "./logsDir";
@@ -476,6 +476,17 @@ async function refreshTray() {
           checked: getStartup(),
           click: (item) => setStartup(item.checked),
         },
+        {
+          label: "Avisar sobre atualizações",
+          type: "checkbox",
+          checked: readAutoUpdate(),
+          click: (item) => {
+            saveAutoUpdate(item.checked);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("refresh-auto-update");
+            }
+          },
+        },
         { type: "separator" },
         // Sair pela bandeja / barra de menus reverte so o que e nosso.
         {
@@ -702,6 +713,7 @@ if (windowsElevation !== "ok") {
     // evita o Tray cair para o GtkStatusIcon, que o Plasma 6 nao exibe.
     waitForStatusNotifier().then(createTray);
     app.on("activate", showWindow);
+    setupUpdater(() => mainWindow, () => readAutoUpdate(), () => readUpdateChannel());
   });
 }
 
@@ -3161,7 +3173,14 @@ export function saveAutoUpdate(enabled: boolean) {
 }
 
 export function readAutoUpdate(): boolean {
-  return false;
+  try {
+    const file = path.join(settingsDir(), "settings.json");
+    if (!fs.existsSync(file)) return true;
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    return typeof data.autoUpdate === "boolean" ? data.autoUpdate : true;
+  } catch {
+    return true;
+  }
 }
 
 // Canal de atualizacao: "stable" (padrao) ou "beta" (opt-in dos testadores —
