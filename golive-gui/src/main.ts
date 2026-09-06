@@ -78,8 +78,8 @@ declare global {
         blocked?: boolean;
         retryAfter?: number;
       }>;
-      getVpnMode: () => Promise<'proton' | 'custom'>;
-      setVpnMode: (mode: 'proton' | 'custom') => Promise<string>;
+      getVpnMode: () => Promise<'proton' | 'custom' | 'kaspersky'>;
+      setVpnMode: (mode: 'proton' | 'custom' | 'kaspersky') => Promise<string>;
       checkProtonSession: (username?: string) => Promise<{ valid: boolean; username?: string; expiresIn?: string; error?: string }>;
       loginProton: (payload: { username: string; password?: string; twoFactorCode?: string }) => Promise<{ success: boolean; code?: string; message?: string; error?: string; retryable?: boolean }>;
       onProtonCaptchaStatus: (callback: (status: string) => void) => void;
@@ -99,7 +99,7 @@ declare global {
         error?: string;
       }>;
       getProtonSettings: () => Promise<{
-        vpnMode: 'proton' | 'custom';
+        vpnMode: 'proton' | 'custom' | 'kaspersky';
         username: string;
         country: string;
         freeOnly: boolean;
@@ -181,6 +181,8 @@ const settingsBackdrop = document.getElementById('settingsBackdrop') as HTMLElem
 const settingsClose = document.getElementById('settingsClose') as HTMLButtonElement | null;
 const vpnImportBtn = document.getElementById('vpnImportBtn') as HTMLButtonElement | null;
 const vpnConfigStatus = document.getElementById('vpnConfigStatus') as HTMLElement | null;
+const kasperskyImportBtn = document.getElementById('kasperskyImportBtn') as HTMLButtonElement | null;
+const kasperskyConfigStatus = document.getElementById('kasperskyConfigStatus') as HTMLElement | null;
 const vpnDropZone = document.getElementById('vpnDropZone') as HTMLElement | null;
 const vpnDropFeedback = document.getElementById('vpnDropFeedback') as HTMLElement | null;
 
@@ -312,7 +314,9 @@ async function updateStatus() {
         btnText.innerText = 'Falta uma rota';
         statusText.innerText = currentVpnMode === 'proton'
           ? 'Entra na Proton aqui do lado pra gente poder ligar'
-          : 'Importa um .conf do WireGuard aqui do lado pra gente poder ligar';
+          : currentVpnMode === 'kaspersky'
+            ? 'Importa o .conf da Kaspersky aqui do lado pra gente poder ligar'
+            : 'Importa um .conf do WireGuard aqui do lado pra gente poder ligar';
         statusTag.textContent = 'Quase pronto';
         statusTag.classList.add('tag--warn');
         statusCard.hidden = false;
@@ -357,7 +361,9 @@ toggleBtn.addEventListener('click', async () => {
       if (!hasSelectedConf) {
         const msg = currentVpnMode === 'proton'
           ? 'Entra na Proton primeiro. Sem conta, não tem pra onde mandar o Discord.'
-          : 'Importa um .conf do WireGuard primeiro. Sem arquivo, o túnel não tem rota.';
+          : currentVpnMode === 'kaspersky'
+            ? 'Importa o .conf da Kaspersky primeiro. Sem arquivo, o túnel não tem rota.'
+            : 'Importa um .conf do WireGuard primeiro. Sem arquivo, o túnel não tem rota.';
         alert(msg);
         toggleBtn.disabled = true;
         return;
@@ -446,8 +452,10 @@ async function refreshAutoUpdate() {
 // ---------------------------------------------------------------------------
 const tabProton = document.getElementById('tabProton') as HTMLButtonElement | null;
 const tabCustom = document.getElementById('tabCustom') as HTMLButtonElement | null;
+const tabKaspersky = document.getElementById('tabKaspersky') as HTMLButtonElement | null;
 const panelProton = document.getElementById('panelProton') as HTMLElement | null;
 const panelCustom = document.getElementById('panelCustom') as HTMLElement | null;
+const panelKaspersky = document.getElementById('panelKaspersky') as HTMLElement | null;
 
 const protonAuthForm = document.getElementById('protonAuthForm') as HTMLElement | null;
 const protonConnectedView = document.getElementById('protonConnectedView') as HTMLElement | null;
@@ -481,7 +489,7 @@ const protonServerLoad = document.getElementById('protonServerLoad') as HTMLElem
 const protonFeedback = document.getElementById('protonFeedback') as HTMLElement | null;
 const protonStayLoggedIn = document.getElementById('protonStayLoggedIn') as HTMLInputElement | null;
 
-let currentVpnMode: 'proton' | 'custom' = 'proton';
+let currentVpnMode: 'proton' | 'custom' | 'kaspersky' = 'proton';
 let isProtonAuthenticated = false;
 let protonOptimizationInFlight = false;
 
@@ -566,22 +574,28 @@ function protonLoginMessage(res: { code?: string; message?: string; error?: stri
   }
 }
 
-async function switchVpnMode(mode: 'proton' | 'custom') {
+function asVpnMode(mode: string | undefined): 'proton' | 'custom' | 'kaspersky' {
+  return mode === 'custom' || mode === 'kaspersky' ? mode : 'proton';
+}
+
+function applyVpnModeUi(mode: 'proton' | 'custom' | 'kaspersky') {
   currentVpnMode = mode;
+  tabProton?.classList.toggle('vpn-mode-tab--active', mode === 'proton');
+  tabProton?.setAttribute('aria-selected', String(mode === 'proton'));
+  tabCustom?.classList.toggle('vpn-mode-tab--active', mode === 'custom');
+  tabCustom?.setAttribute('aria-selected', String(mode === 'custom'));
+  tabKaspersky?.classList.toggle('vpn-mode-tab--active', mode === 'kaspersky');
+  tabKaspersky?.setAttribute('aria-selected', String(mode === 'kaspersky'));
+  if (panelProton) panelProton.hidden = mode !== 'proton';
+  if (panelCustom) panelCustom.hidden = mode !== 'custom';
+  if (panelKaspersky) panelKaspersky.hidden = mode !== 'kaspersky';
+}
+
+async function switchVpnMode(mode: 'proton' | 'custom' | 'kaspersky') {
+  applyVpnModeUi(mode);
   try {
     await window.api.setVpnMode(mode);
   } catch {}
-
-  if (tabProton && tabCustom && panelProton && panelCustom) {
-    const isProton = mode === 'proton';
-    tabProton.classList.toggle('vpn-mode-tab--active', isProton);
-    tabProton.setAttribute('aria-selected', String(isProton));
-    tabCustom.classList.toggle('vpn-mode-tab--active', !isProton);
-    tabCustom.setAttribute('aria-selected', String(!isProton));
-
-    panelProton.hidden = !isProton;
-    panelCustom.hidden = isProton;
-  }
 
   await atualizarStatusWgConf();
   await updateStatus();
@@ -590,6 +604,7 @@ async function switchVpnMode(mode: 'proton' | 'custom') {
 
 tabProton?.addEventListener('click', () => switchVpnMode('proton'));
 tabCustom?.addEventListener('click', () => switchVpnMode('custom'));
+tabKaspersky?.addEventListener('click', () => switchVpnMode('kaspersky'));
 
 async function refreshProtonState() {
   try {
@@ -786,28 +801,24 @@ async function atualizarStatusWgConf() {
       if (nome && nome.trim() && !nome.startsWith('ProtonVPN')) {
         hasSelectedConf = true;
         if (vpnConfigStatus) vpnConfigStatus.textContent = nome;
+        if (kasperskyConfigStatus) kasperskyConfigStatus.textContent = nome;
       } else {
         hasSelectedConf = false;
         if (vpnConfigStatus) vpnConfigStatus.textContent = 'Ainda sem arquivo';
+        if (kasperskyConfigStatus) kasperskyConfigStatus.textContent = 'Ainda sem arquivo';
       }
     } catch {
       hasSelectedConf = false;
       if (vpnConfigStatus) vpnConfigStatus.textContent = 'Ainda sem arquivo';
+      if (kasperskyConfigStatus) kasperskyConfigStatus.textContent = 'Ainda sem arquivo';
     }
   }
 }
 
 async function initVpnSection() {
   try {
-    const mode = await window.api.getVpnMode();
-    currentVpnMode = mode || 'proton';
-    if (tabProton && tabCustom && panelProton && panelCustom) {
-      const isProton = currentVpnMode === 'proton';
-      tabProton.classList.toggle('vpn-mode-tab--active', isProton);
-      tabCustom.classList.toggle('vpn-mode-tab--active', !isProton);
-      panelProton.hidden = !isProton;
-      panelCustom.hidden = isProton;
-    }
+    const mode = asVpnMode(await window.api.getVpnMode());
+    applyVpnModeUi(mode);
     await refreshProtonState();
     await atualizarStatusWgConf();
     // ponytail: o login já grava o .conf; pingar de novo na abertura só atrasa a tela.
@@ -817,22 +828,26 @@ async function initVpnSection() {
   }
 }
 
-if (vpnImportBtn) {
-  vpnImportBtn.addEventListener('click', async () => {
-    try {
-      const res = await window.api.importWgConf();
-      if (res && res.success) {
-        await atualizarStatusWgConf();
-        await updateStatus();
-        setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
-      } else if (res?.error) {
-        setVpnDropFeedback(res.error, 'bad');
+async function importWgConfFromPicker() {
+  try {
+    const res = await window.api.importWgConf();
+    if (res && res.success) {
+      await atualizarStatusWgConf();
+      await updateStatus();
+      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
+    } else if (res?.error) {
+      if (kasperskyConfigStatus && currentVpnMode === 'kaspersky') {
+        kasperskyConfigStatus.textContent = res.error;
       }
-    } catch (err) {
-      console.error('Falha ao importar config WireGuard:', err);
+      setVpnDropFeedback(res.error, 'bad');
     }
-  });
+  } catch (err) {
+    console.error('Falha ao importar config WireGuard:', err);
+  }
 }
+
+vpnImportBtn?.addEventListener('click', () => void importWgConfFromPicker());
+kasperskyImportBtn?.addEventListener('click', () => void importWgConfFromPicker());
 
 function setVpnDropActive(active: boolean) {
   vpnDropZone?.classList.toggle('vpn-drop-zone--active', active);

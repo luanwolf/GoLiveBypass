@@ -42,7 +42,7 @@ const __dirname = dirname(__filename);
 const isMac = process.platform === "darwin";
 const IS_LINUX = process.platform === "linux";
 const IS_WINDOWS = process.platform === "win32";
-const MAIN_WINDOW_WIDTH = 880;
+const MAIN_WINDOW_WIDTH = 1020;
 
 // Parar, resetar o lock e instalar outro perfil mexe no mesmo servico/driver
 // global. Uma fila unica impede que clique, bandeja e troca Proton criem duas
@@ -1568,13 +1568,13 @@ async function executarAtivacao(event: any) {
 
   // Valida que o usuario selecionou uma configuracao WireGuard
   const s = readSharedSettings() as any;
-  const vpnMode = (s.vpnMode as string) || "proton";
+  const vpnMode = proton.sanitizeVpnMode(s.vpnMode);
   const wgConf = path.join(settingsDir(), "wireguard.conf");
 
   if (vpnMode === "proton") {
     const username = (s.protonUsername as string) || "";
     if (!username) {
-      throw new Error("Faça login com sua conta ProtonVPN (ou selecione 'Arquivo .conf Customizado') antes de ativar.");
+      throw new Error("Faça login com sua conta ProtonVPN (ou importe um .conf da Kaspersky / WireGuard) antes de ativar.");
     }
     if (!fs.existsSync(wgConf)) {
       const gen = await proton.generateOptimalProtonConfig(settingsDir(), {
@@ -3886,7 +3886,7 @@ ipcMain.handle("test-wg-conf", async () => {
 
 ipcMain.handle("get-wg-conf-name", async () => {
   const s = readSharedSettings() as any;
-  const vpnMode = (s.vpnMode as string) || "proton";
+  const vpnMode = proton.sanitizeVpnMode(s.vpnMode);
   if (vpnMode === "proton") {
     if (s.protonLastServer?.server) {
       const ping = s.protonLastServer.pingMs > 0 ? ` (${s.protonLastServer.pingMs}ms)` : "";
@@ -3906,19 +3906,20 @@ ipcMain.handle("get-wg-conf-name", async () => {
 
 ipcMain.handle("get-vpn-mode", async () => {
   const s = readSharedSettings() as any;
-  return (s.vpnMode as string) || "proton";
+  return proton.sanitizeVpnMode(s.vpnMode);
 });
 
-ipcMain.handle("set-vpn-mode", async (_event, mode: "proton" | "custom") => {
-  updateSharedSettings({ vpnMode: mode });
-  return mode;
+ipcMain.handle("set-vpn-mode", async (_event, mode: unknown) => {
+  const vpnMode = proton.sanitizeVpnMode(mode);
+  updateSharedSettings({ vpnMode });
+  return vpnMode;
 });
 
 ipcMain.handle("get-proton-settings", async () => {
   const s = readSharedSettings() as any;
   const recoveredUsername = recoverProtonUsername() || (s.protonUsername as string) || "";
   return {
-    vpnMode: (s.vpnMode as string) || "proton",
+    vpnMode: proton.sanitizeVpnMode(s.vpnMode),
     username: recoveredUsername,
     country: (s.protonCountry as string) || "",
     freeOnly: s.protonFreeOnly !== false,

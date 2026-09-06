@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidWgKey, parseWgConf, validateWgConfContent } from "../electron/wg-validator";
+import { isValidWgKey, parseWgConf, rewriteWgConfForSplitTunnel, validateWgConfContent } from "../electron/wg-validator";
 
 describe("WireGuard Validator", () => {
   it("valida chaves WireGuard corretamente", () => {
@@ -32,6 +32,27 @@ Endpoint = 84.20.27.50:51820
     expect(parsed.interface.dns).toBe("10.2.0.1");
     expect(parsed.peer.publicKey).toBe("VIsNLxZusibbokXCLvUmRHmYhdIEUsWm+vGHoEvWd20=");
     expect(parsed.peer.endpoint).toBe("84.20.27.50:51820");
+  });
+
+  it("completa .conf IPv4-only com mascara e catch-all IPv6", () => {
+    const out = rewriteWgConfForSplitTunnel(`[Interface]
+PrivateKey = EJmruxrw1y1dxNMn/MwWNjqh6RdtbrrajBqlnlxjoFw=
+Address=172.21.95.103
+[Peer]
+PublicKey = VIsNLxZusibbokXCLvUmRHmYhdIEUsWm+vGHoEvWd20=
+AllowedIPs=0.0.0.0/0
+Endpoint=sx370703-ikev.dnsdialer.com:51820
+`);
+    expect(out).toContain("Address = 172.21.95.103/32");
+    expect(out).toContain("AllowedIPs = 0.0.0.0/0, ::/0");
+  });
+
+  it("nao duplica ::/0 quando o perfil ja e dual-stack", () => {
+    const src = `[Peer]
+AllowedIPs = 0.0.0.0/0, ::/0
+`;
+    expect(rewriteWgConfForSplitTunnel(src)).toContain("AllowedIPs = 0.0.0.0/0, ::/0");
+    expect(rewriteWgConfForSplitTunnel(src).match(/::\/0/g)?.length).toBe(1);
   });
 
   it("valida configuracao valida com IP direto", async () => {

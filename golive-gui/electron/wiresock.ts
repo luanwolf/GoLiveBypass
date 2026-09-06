@@ -4,6 +4,7 @@ import { execFileSync, execSync, spawn } from "child_process";
 import dns from "dns/promises";
 import https from "https";
 import * as logger from "./logger";
+import { rewriteWgConfForSplitTunnel } from "./wg-validator";
 
 const WIRESOCK_PACKAGE_ID = "NTKERNEL.WireSockVPNClientCLI";
 const WIRESOCK_DOWNLOAD_PAGE = "https://v3.wiresock.net/wiresock-sdk";
@@ -412,7 +413,7 @@ export async function startWireSockService(installDir: string, customConf?: stri
   const targetConf = path.join(installDir, "wiresock-discord.conf");
 
   const allowedApps = formatAllowedApps(allowedAppPaths);
-  const rawLines = fs.readFileSync(rawConf, "utf8").split(/\r?\n/);
+  const rawLines = rewriteWgConfForSplitTunnel(fs.readFileSync(rawConf, "utf8")).split(/\r?\n/);
   let hasAllowedApps = false;
   const newLines = rawLines.map((l) => {
     if (/^\s*DNS\s*=/i.test(l)) {

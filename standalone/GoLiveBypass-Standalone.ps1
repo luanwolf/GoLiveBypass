@@ -177,6 +177,14 @@ function Install-WireSockTunnel {
         } elseif ($line -match '^\s*AllowedApps\s*=') {
             $hasAllowedApps = $true
             $newLines += 'AllowedApps = Discord, Discord.exe, Update.exe'
+        } elseif ($line -match '^\s*Address\s*=\s*(.+)$') {
+            $addr = $Matches[1].Trim()
+            if ($addr -notmatch '/') { $addr = "$addr/32" }
+            $newLines += "Address = $addr"
+        } elseif ($line -match '^\s*AllowedIPs\s*=\s*(.+)$') {
+            $ips = $Matches[1].Trim()
+            if ($ips -match '0\.0\.0\.0/0' -and $ips -notmatch '::/0') { $ips = "$ips, ::/0" }
+            $newLines += "AllowedIPs = $ips"
         } else {
             $newLines += $line
         }

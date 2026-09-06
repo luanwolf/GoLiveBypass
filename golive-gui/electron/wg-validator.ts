@@ -77,6 +77,43 @@ export function parseWgConf(content: string): ParsedWgConf {
   return result;
 }
 
+export function withAddressCidr(address: string): string {
+  return address
+    .split(",")
+    .map((part) => {
+      const value = part.trim();
+      if (!value || value.includes("/")) return value;
+      if (net.isIPv4(value)) return `${value}/32`;
+      if (net.isIPv6(value)) return `${value}/128`;
+      return value;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function withIpv6CatchAll(allowedIPs: string): string {
+  const parts = allowedIPs.split(",").map((part) => part.trim()).filter(Boolean);
+  const hasV4All = parts.some((part) => part === "0.0.0.0/0");
+  const hasV6All = parts.some((part) => part === "::/0");
+  if (hasV4All && !hasV6All) parts.push("::/0");
+  return parts.join(", ");
+}
+
+/** Kaspersky e outros .conf de roteador vêm só com IPv4; o Discord no Windows usa IPv6 e vaza no Brasil. */
+export function rewriteWgConfForSplitTunnel(content: string): string {
+  return content.split(/\r?\n/).map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("[")) return line;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) return line;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim();
+    if (/^Address$/i.test(key)) return `Address = ${withAddressCidr(val)}`;
+    if (/^AllowedIPs$/i.test(key)) return `AllowedIPs = ${withIpv6CatchAll(val)}`;
+    return line;
+  }).join("\n");
+}
+
 export async function validateWgConfContent(content: string): Promise<WgConfValidation> {
   if (!content || !content.trim()) {
     return { valid: false, error: "Arquivo de configuração está vazio." };

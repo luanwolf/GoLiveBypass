@@ -32,6 +32,7 @@ describe("WireSock no Windows", () => {
     const src = fs.readFileSync(path.resolve(process.cwd(), "electron/wiresock.ts"), "utf8");
     expect(src).toContain("#@ws:AllowedApps = ${allowedApps}");
     expect(src).not.toContain("return `AllowedApps = ${allowedApps}`");
+    expect(src).toContain("rewriteWgConfForSplitTunnel");
   });
 
   it("oculta os processos auxiliares e as elevacoes do WireGuard", () => {

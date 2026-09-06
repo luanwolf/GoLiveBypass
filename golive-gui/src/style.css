@@ -859,7 +859,7 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
 /* Tabs de Modo VPN */
 .vpn-mode-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 3px;
   background: var(--canvas);
@@ -873,14 +873,14 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 6px;
+  gap: 7px;
+  height: 36px;
+  padding: 0 10px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   border-radius: 7px;
   cursor: pointer;
@@ -888,12 +888,37 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
     border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
   user-select: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .vpn-mode-tab svg {
   flex-shrink: 0;
+}
+
+.vpn-mode-tab#tabProton .vpn-brand-icon {
+  color: #6d4aff;
+}
+
+.kaspersky-steps {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.kaspersky-steps li {
+  margin: 0 0 6px;
+}
+
+.kaspersky-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.kaspersky-links a {
+  color: #9a86ff;
 }
 
 .vpn-mode-tab:hover {
@@ -2172,7 +2197,7 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
    Composição principal — ação e conexão lado a lado
    ------------------------------------------------------------ */
 .container {
-  max-width: 920px;
+  max-width: 1080px;
   padding-left: 40px;
   padding-right: 40px;
   padding-bottom: 40px;

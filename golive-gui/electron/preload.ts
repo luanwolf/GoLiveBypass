@@ -40,7 +40,7 @@ import { ipcRenderer } from 'electron';
   setTheme: (theme: string) => ipcRenderer.send('set-theme', theme),
   reportBug: (payload: { title: string; description: string; includeLogs: boolean }) => ipcRenderer.invoke('report-bug', payload),
   getVpnMode: () => ipcRenderer.invoke('get-vpn-mode'),
-  setVpnMode: (mode: 'proton' | 'custom') => ipcRenderer.invoke('set-vpn-mode', mode),
+  setVpnMode: (mode: 'proton' | 'custom' | 'kaspersky') => ipcRenderer.invoke('set-vpn-mode', mode),
   checkProtonSession: (username: string) => ipcRenderer.invoke('check-proton-session', username),
   loginProton: (payload: { username: string; password?: string; twoFactorCode?: string }) =>
     ipcRenderer.invoke('login-proton', payload),

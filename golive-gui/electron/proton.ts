@@ -33,8 +33,14 @@ export interface ProtonLoginResult {
   captchaUrl?: string;
 }
 
+export type VpnMode = 'proton' | 'custom' | 'kaspersky';
+
+export function sanitizeVpnMode(mode: unknown): VpnMode {
+  return mode === 'custom' || mode === 'kaspersky' || mode === 'proton' ? mode : 'proton';
+}
+
 export interface ProtonSettings {
-  vpnMode: 'proton' | 'custom';
+  vpnMode: VpnMode;
   username: string;
   country: string; // "" for AUTO, or "US", "NL", "JP", etc.
   freeOnly: boolean;

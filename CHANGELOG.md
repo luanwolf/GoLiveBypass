@@ -4,6 +4,15 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.5] - 2026-09-06
+
+### Adicionado
+- **Kaspersky só no Discord:** aba nova importa o WireGuard gerado no My Kaspersky. O túnel continua per-app (WireSock no Windows, namespace no Linux); o resto do PC não passa pela VPN. Não use o app Kaspersky VPN ao mesmo tempo neste computador.
+- Perfil WireGuard só IPv4 (Kaspersky e outros de roteador) ganha `::/0` e máscara `/32` na hora do túnel, para o Discord não vazar pelo IPv6 brasileiro.
+
+### Alterado
+- Janela mais larga; abas na ordem Proton, Kaspersky, Arquivo .conf, com as marcas nas abas.
+
 ## [2.1.4] - 2026-09-06
 
 ### Adicionado
