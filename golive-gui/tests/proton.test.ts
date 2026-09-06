@@ -14,13 +14,20 @@ import {
   confirmSavedSessionIdentity,
   protonIdentityMatches,
   classifyProtonError,
+  readLocalProtonSession,
+  hasReusableProtonConfig,
+  protonSettingsPatch,
 } from "../electron/proton";
 
 describe("ProtonVPN Integration & Sidecar", () => {
-  it("gera perfis Proton com IPv6 para impedir saida direta fora do AllowedIPs", () => {
+  it("gera perfis Proton persistentes com IPv6 e dispositivo estavel", () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), "electron/proton.ts"), "utf8");
     const generation = source.slice(source.indexOf("export async function generateOptimalProtonConfig"));
     expect(generation).toContain("'-ipv6'");
+    expect(generation).toContain("'-device-name'");
+    expect(generation).toContain("'GoLiveBypass'");
+    expect(generation).toContain("'-duration'");
+    expect(generation).toContain("'365d'");
   });
 
   it("processa o JSON final depois de uma mensagem de sessao salva", () => {
@@ -104,12 +111,44 @@ describe("ProtonVPN Integration & Sidecar", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "proton-test-"));
     const nested = path.join(root, "nested", "data");
     try {
-      const res = await checkProtonSession(nested, "usuario_inexistente");
-      expect(res.valid).toBe(false);
+      const res = await loginProton(nested, "usuario_inexistente", "x");
+      expect(res.success).toBe(false);
       expect(fs.existsSync(nested)).toBe(true);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  }, 30000);
+
+  it("trata arquivo com token como sessao valida mesmo com ExpiresIn ausente", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "proton-test-"));
+    try {
+      fs.writeFileSync(path.join(tmpDir, "proton-session.json"), JSON.stringify({
+        username: "conta@example.com",
+        expires_at: new Date().toISOString(),
+        session: { AccessToken: "x", RefreshToken: "y" },
+      }));
+      const res = await checkProtonSession(tmpDir, "conta@example.com");
+      expect(res).toEqual(expect.objectContaining({ valid: true, username: "conta@example.com" }));
+      expect(readLocalProtonSession(tmpDir).valid).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("reusa wireguard.conf com Interface e Peer", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "proton-test-"));
+    try {
+      expect(hasReusableProtonConfig(tmpDir)).toBe(false);
+      fs.writeFileSync(path.join(tmpDir, "wireguard.conf"), "[Interface]\nPrivateKey=abc\n[Peer]\nPublicKey=def\n");
+      expect(hasReusableProtonConfig(tmpDir)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("grava so os campos Proton enviados", () => {
+    expect(protonSettingsPatch({ country: "US" })).toEqual({ protonCountry: "US" });
+    expect(protonSettingsPatch({ stayLoggedIn: false })).toEqual({ protonStayLoggedIn: false });
   });
 
   it("executa proton-confgen e processa JSON retornado", async () => {

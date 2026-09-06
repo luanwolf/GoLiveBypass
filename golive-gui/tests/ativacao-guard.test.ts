@@ -142,7 +142,7 @@ describe("guarda de ativacao duplicada", () => {
     expect(readiness).toContain('"disconnected" : "unverified"');
 
     const ui = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf8");
-    expect(ui).toContain("Discord só abre depois que o IP de saída WireGuard é comprovado");
+    expect(ui).toContain("O Discord só abre quando a conexão estiver certa");
   });
 
   it("usa uma fila unica para operacoes concorrentes do WireSock", () => {
@@ -266,5 +266,18 @@ describe("guarda de ativacao duplicada", () => {
     expect(activation).toContain("pararWgStatsWatchdog();");
     const rollback = activation.slice(activation.indexOf("} catch (cause)"), activation.indexOf("if (!windowsDiscordStarted)"));
     expect(rollback.indexOf("await killDiscord()")).toBeLessThan(rollback.indexOf("recoverWireSockNetwork()"));
+  });
+
+  it("reescolhe a melhor rota Proton quando o vigia confirma queda da saida", () => {
+    const src = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
+    expect(src).toContain("async function escolherMelhorRotaProton");
+    expect(src).toContain("async function reabrirTunelWindowsAposQueda");
+    expect(src).toContain("route.watchdog.reroute.ok");
+    const watchdog = src.slice(
+      src.indexOf("function startWindowsRouteWatchdog"),
+      src.indexOf("async function startDiscordAndConfirm"),
+    );
+    expect(watchdog).toContain("await escolherMelhorRotaProton()");
+    expect(watchdog).toContain('reabrirTunelWindowsAposQueda(generation, "route-watchdog-recovery")');
   });
 });

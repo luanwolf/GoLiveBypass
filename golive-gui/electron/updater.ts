@@ -250,6 +250,13 @@ export function setupUpdater(
   isAutoUpdateEnabled: () => boolean = () => true,
   canalAtual: () => Canal = () => "stable",
 ) {
+  // Fork: nao consulta o GitHub original nem baixa update. Os parametros
+  // ficam no signature pra nao quebrar o caller; o corpo abaixo nao roda.
+  void getMainWindow;
+  void isAutoUpdateEnabled;
+  void canalAtual;
+  return;
+
   // Em desenvolvimento nao existe um AppImage/portable que possa receber update. Forcar
   // electron-updater a usar dev-app-update.yml fazia o npm run dev consultar uma release
   // com a versao local (ex.: v1.1.12-dev.8) e registrar um 404 ruidoso no terminal.
@@ -298,9 +305,9 @@ export function setupUpdater(
       const choice = win
         ? (await dialog.showMessageBox(win, {
             type: "info",
-            title: "Atualização disponível",
-            message: `GoLiveBypass ${info.version} foi baixada.`,
-            detail: "Reiniciar agora para aplicar a atualização? O app fecha e reabre sozinho.",
+            title: "Tem versão nova",
+            message: `O GoLiveBypass ${info.version} já baixou.`,
+            detail: "Reinicia agora pra aplicar? O app fecha e abre sozinho.",
             buttons: ["Reiniciar agora", "Depois"],
             defaultId: 0,
             cancelId: 1,
@@ -358,11 +365,11 @@ export async function checkWindowsUpdate(
     const choice = win
       ? (await dialog.showMessageBox(win, {
           type: "info",
-          title: "Atualização disponível",
-          message: `GoLiveBypass ${latest}${ehBeta ? " (beta)" : ""} está disponível.`,
+          title: "Tem versão nova",
+          message: `O GoLiveBypass ${latest}${ehBeta ? " (beta)" : ""} chegou.`,
           detail: ehBeta
-            ? "Versão de teste do canal beta. Baixar e instalar agora? O app reabre sozinho ao terminar."
-            : "Baixar e instalar agora? O app reabre sozinho ao terminar.",
+            ? "Versão de teste do canal beta. Baixa e instala agora? O app reabre sozinho no fim."
+            : "Baixa e instala agora? O app reabre sozinho no fim.",
           buttons: ["Atualizar agora", "Depois"],
           defaultId: 0,
           cancelId: 1,
@@ -383,10 +390,10 @@ export async function checkWindowsUpdate(
       const win = getMainWindow();
       const aviso = {
         type: "warning" as const,
-        title: "Falha na atualização",
-        message: `Não foi possível instalar o GoLiveBypass ${latest}.`,
+        title: "A atualização não rolou",
+        message: `Não deu pra instalar o GoLiveBypass ${latest}.`,
         detail:
-          "A versão atual continua funcionando. Tente de novo mais tarde, ou baixe a versão nova manualmente em github.com/bezumiya/GoLiveBypass/releases.",
+          "A versão atual continua no ar. Tenta de novo daqui a pouco, ou baixa a nova na mão em github.com/bezumiya/GoLiveBypass/releases.",
         buttons: ["OK"],
       };
       if (win) await dialog.showMessageBox(win, aviso);

@@ -10,11 +10,9 @@
  * instalador (que nao escreveu nada), e nao tem como a interface saber que a
  * chamada "funcionou" sem efeito.
  *
- * Workaround: no Windows, escrever direto em HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run
- * via reg.exe. O reg.exe ja vem com o Windows, nao exige elevacao (HKCU e do
- * usuario), e o caminho do exe e o `process.execPath` (que no portable e o .exe
- * que o usuario esta rodando agora). Args = ["--hidden"] para subir so na
- * bandeja sem abrir a janela. Remover o autostart = reg delete.
+ * Workaround: no Windows o exe pede administrador, e HKCU\\...\\Run nao inicia
+ * programas que exigem UAC. A tarefa ONLOGON /RL HIGHEST sobe elevado sem
+ * prompt extra. A entrada antiga de Run e apagada na migracao.
  *
  * No macOS, o setLoginItemSettings funciona (foi reescrito no Electron 22+
  * para portable, e o app oficial e dmg/zip com category). Mantemos o caminho
@@ -31,6 +29,7 @@ const IS_MAC = process.platform === "darwin";
 
 const RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const ENTRY_NAME = "GoLiveBypass";
+const TASK_NAME = "GoLiveBypass";
 
 export interface StartupResult {
   success: boolean;
@@ -73,9 +72,35 @@ function desktopExecPath(value: string): string {
   return `"${value.replace(/([\\"`$])/g, "\\$1")}"`;
 }
 
+function removeLegacyRunKey() {
+  try {
+    execFileSync("reg.exe", ["delete", RUN_KEY, "/v", ENTRY_NAME, "/f"], { stdio: "ignore", windowsHide: true });
+  } catch {
+    // Entrada antiga ausente: migracao ja feita.
+  }
+}
+
+function hasScheduledTask(): boolean {
+  try {
+    execFileSync("schtasks.exe", ["/Query", "/TN", TASK_NAME], { stdio: "ignore", windowsHide: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasLegacyRunKey(): boolean {
+  try {
+    const output = execFileSync("reg.exe", ["query", RUN_KEY, "/v", ENTRY_NAME], { encoding: "utf8", windowsHide: true });
+    return output.includes(ENTRY_NAME);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Marca o app para iniciar com o login do usuario.
- * - Windows: HKCU\...\Run via reg.exe (funciona em portable)
+ * - Windows: tarefa agendada ONLOGON /RL HIGHEST (exe elevado)
  * - macOS: app.setLoginItemSettings (funciona em dmg/zip)
  * - Linux: ~/.config/autostart/golivebypass.desktop
  *
@@ -90,43 +115,29 @@ export function setStartup(enabled: boolean): StartupResult {
       if (!executable || !fs.existsSync(executable)) {
         return { success: false, error: "O executável atual do GoLiveBypass não foi encontrado." };
       }
-      // Aspas escapadas: o caminho do exe pode ter espacos (o portable e
-      // "GoLiveBypass-1.1.9.exe" em C:\Program Files\ por exemplo). reg.exe
-      // interpreta a string como valor REG_SZ, e espacos sem aspas quebram
-      // o registro. O prefixo " so serve se o valor comecar com aspas;
-      // aqui o caminho e o valor inteiro do registro.
-      const value = `\"${executable}\" --hidden`;
+      const tr = `"${executable}" --hidden`;
       try {
-        execFileSync("reg.exe", [
-          "add",
-          RUN_KEY,
-          "/v", ENTRY_NAME,
-          "/t", "REG_SZ",
-          "/d", value,
-          "/f",
-        ], { stdio: "ignore" });
+        execFileSync("schtasks.exe", [
+          "/Create",
+          "/TN", TASK_NAME,
+          "/TR", tr,
+          "/SC", "ONLOGON",
+          "/RL", "HIGHEST",
+          "/F",
+        ], { stdio: "ignore", windowsHide: true });
       } catch (error) {
-        // Sem HKCU: usuario sem perfil movel, ou sessao sem permissao (raro
-        // mas pode acontecer em kiosk). Silencioso -- a UI nao foi projetada
-        // para mostrar erro, e o usuario pode re-tentar.
-        console.error("falha ao adicionar entrada de Run:", error);
+        console.error("falha ao criar tarefa de inicializacao:", error);
         return { success: false, error: "O Windows recusou a criação da inicialização automática." };
       }
-      if (!getStartup()) return { success: false, error: "A entrada foi criada, mas não pôde ser confirmada no registro do Windows." };
+      removeLegacyRunKey();
+      if (!getStartup()) return { success: false, error: "A tarefa foi criada, mas não pôde ser confirmada." };
     } else {
       try {
-        execFileSync("reg.exe", [
-          "delete",
-          RUN_KEY,
-          "/v", ENTRY_NAME,
-          "/f",
-        ], { stdio: "ignore" });
+        execFileSync("schtasks.exe", ["/Delete", "/TN", TASK_NAME, "/F"], { stdio: "ignore", windowsHide: true });
       } catch {
-        // Ignorar quando a entrada nao existe: o `reg delete` falha com nivel
-        // de erro 1 quando a chave nao esta presente, e o caller nao distingue
-        // isso de um erro real. O retorno e mapeado em getStartup() de qualquer
-        // jeito.
+        // Tarefa ausente: ja estava desligada.
       }
+      removeLegacyRunKey();
     }
     return { success: true };
   }
@@ -184,10 +195,7 @@ export function setStartup(enabled: boolean): StartupResult {
  * Le o estado atual do autostart. Retorna true se o app vai subir com o
  * login, false caso contrario.
  *
- * No Windows, lemos diretamente do registro. Usar getLoginItemSettings do
- * Electron daria sempre false em portable (porque nao escreve nada), e o
- * checkbox no renderer viraria sempre desmarcado mesmo com o registro
- * configurado -- e a queixa da issue #84.
+ * No Windows, lemos a tarefa agendada (e a Run key antiga, ate migrar).
  */
 export function getStartup(): boolean {
   if (IS_LINUX) {
@@ -195,18 +203,7 @@ export function getStartup(): boolean {
     return fs.existsSync(file);
   }
   if (IS_WINDOWS) {
-    try {
-      const output = execFileSync("reg.exe", [
-        "query",
-        RUN_KEY,
-        "/v", ENTRY_NAME,
-      ], { encoding: "utf8" });
-      // /v so imprime a chave pedida; se ela existir, aparece "GoLiveBypass" no stdout.
-      // Se nao existir, reg.exe sai com codigo 1 e escreve no stderr.
-      return output.includes(ENTRY_NAME);
-    } catch {
-      return false;
-    }
+    return hasScheduledTask() || hasLegacyRunKey();
   }
   return app.getLoginItemSettings().openAtLogin;
 }

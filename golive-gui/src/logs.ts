@@ -76,7 +76,7 @@ copyDiagBtn.addEventListener('click', async () => {
       note: bugNoteInput.value,
     });
     await navigator.clipboard.writeText(text);
-    devHint.textContent = 'Diagnóstico copiado para a área de transferência.';
+    devHint.textContent = 'Diagnóstico copiado. Pode colar onde quiser.';
   } catch (err) {
     devHint.textContent = err instanceof Error ? err.message : String(err);
   } finally {
@@ -86,12 +86,12 @@ copyDiagBtn.addEventListener('click', async () => {
 
 reportBugBtn.addEventListener('click', async () => {
   reportBugBtn.disabled = true;
-  devHint.textContent = 'Enviando relato...';
+  devHint.textContent = 'Mandando o relato…';
   try {
     const r = await api.openBugReport({
       status: currentStatus,
       note: bugNoteInput.value,
-      title: `[GUI] ${currentStatus} — relato`,
+      title: `[GUI] ${currentStatus}: relato`,
     });
     if (r.via === 'api') {
       devHint.textContent = r.issueNumber
@@ -104,7 +104,7 @@ reportBugBtn.addEventListener('click', async () => {
         'Issue aberta (corpo truncado). Diagnóstico completo no clipboard.';
     } else {
       devHint.textContent =
-        'Formulário do GitHub aberto (labels bug,gui). Diagnóstico no clipboard.';
+        'Diagnóstico copiado. Nada foi enviado pra fora.';
     }
   } catch (err) {
     devHint.textContent = err instanceof Error ? err.message : String(err);

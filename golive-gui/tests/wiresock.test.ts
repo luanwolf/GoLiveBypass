@@ -178,4 +178,11 @@ describe("WireSock no Windows", () => {
     expect(roots).toContain(path.join("C:\\Users\\teste\\AppData\\Local", "Microsoft", "WinGet", "Packages"));
     expect(roots.some((root) => root.includes("Windows\\System32"))).toBe(false);
   });
+
+  it("nao cai em perfil compartilhado nem pega .conf da pasta Downloads", () => {
+    const src = fs.readFileSync(path.resolve(process.cwd(), "electron/wiresock.ts"), "utf8");
+    expect(src).not.toContain("EMBEDDED_WG_CONF");
+    expect(src).not.toContain("wg-*.conf");
+    expect(src).toContain("Nenhum perfil WireGuard encontrado");
+  });
 });

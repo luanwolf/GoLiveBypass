@@ -17,7 +17,7 @@ import fs from "fs";
 import { createHash } from "crypto";
 import { execFileSync, execSync, spawn, spawnSync } from "child_process";
 import { runScript } from "./linux-helper";
-import { setupUpdater, isQuittingForUpdate } from "./updater";
+import { isQuittingForUpdate } from "./updater";
 import * as logger from "./logger";
 import * as discordscan from "./discordscan";
 import * as logsDir from "./logsDir";
@@ -33,6 +33,8 @@ import { classifyLinuxHealth, shouldRecoverLinuxTunnel } from "./linux-health";
 import { PROTON_CAPTCHA_CAPTURE_SCRIPT, isAllowedProtonCaptchaNavigation, parseProtonCaptchaChallenge, validateProtonCaptchaResponse } from "./proton-captcha";
 import { decideRouteProof, maskedIP, type RouteProbeResult } from "./route-proof";
 import { prepareDiscordScopeProbes, type DiscordScopeProbe } from "./discord-scope-proof";
+import { ensureWindowsAdmin } from "./elevate";
+import { redigir, extrairSegredosDaProxy } from "./redact";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,7 +42,7 @@ const __dirname = dirname(__filename);
 const isMac = process.platform === "darwin";
 const IS_LINUX = process.platform === "linux";
 const IS_WINDOWS = process.platform === "win32";
-const MAIN_WINDOW_WIDTH = 720;
+const MAIN_WINDOW_WIDTH = 880;
 
 // Parar, resetar o lock e instalar outro perfil mexe no mesmo servico/driver
 // global. Uma fila unica impede que clique, bandeja e troca Proton criem duas
@@ -99,7 +101,7 @@ function applyTitlebarTheme() {
 // "'--ozone-platform=wayland' is not compatible with Vulkan" (wayland_surface_factory.cc).
 // A janela abre, mas o renderer fica preso em "Verificando..." para sempre (o getStatus
 // via IPC nunca responde). Desligar a aceleracao de hardware (SwiftShader no lugar) resolve
-// — e este app e uma janela fixa de 720px, nao precisa de GPU. Vale para X11 tambem.
+// — e este app e uma janela fixa, nao precisa de GPU. Vale para X11 tambem.
 if (IS_LINUX) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
@@ -192,7 +194,9 @@ function loadAsset(name: string) {
 }
 
 function startupLabel() {
-  return isMac ? "Iniciar com o Mac" : "Iniciar com o Windows";
+  if (isMac) return "Abrir junto com o Mac";
+  if (IS_LINUX) return "Abrir junto com o sistema";
+  return "Abrir junto com o Windows";
 }
 
 function enclosingApp(filePath: string) {
@@ -216,7 +220,7 @@ function writeError(targetPath: string) {
     return [
       `Não foi possível escrever dentro de Discord.app (${targetPath}).`,
       "",
-      "O macOS bloqueia outros apps de alterar o Discord — é a mesma permissão que o Vencord pede.",
+      "O macOS bloqueia outros apps de alterar o Discord. É a mesma permissão que o Vencord pede.",
       "",
       "1. Ajustes do Sistema → Privacidade e Segurança → Administração de Apps",
       "2. Ative o GoLiveBypass (ou arraste o app para a lista)",
@@ -260,7 +264,7 @@ function createWindow() {
     // A altura e ajustada pelo proprio conteudo: a pagina avisa via IPC 'resize-window'
     // quando o warning do bypass ativo aparece/some, e a janela cresce/encolhe para nao
     // cortar nada (antes o aviso ficava cortado com a altura fixa de 560).
-    height: 560,
+    height: 640,
     resizable: false,
     icon: loadAsset('icon.png'),
     webPreferences: {
@@ -367,7 +371,7 @@ function openLogWindow() {
       : { titleBarOverlay: TITLEBAR[theme] }),
   });
 
-  logWindow.setTitle("GoLiveBypass — Logs");
+  logWindow.setTitle("GoLiveBypass: logs");
   logWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);
     return { action: "deny" };
@@ -415,13 +419,13 @@ function showWindow() {
 }
 
 function statusLabel(status: string) {
-  if (status === "ACTIVE") return "ativo";
-  if (status === "CONNECTING") return "comprovando rota";
-  if (status === "RECOVERY_REQUIRED") return "recuperação necessária";
-  if (status === "OTHER_MOD") return "outro mod detectado";
+  if (status === "ACTIVE") return "no ar";
+  if (status === "CONNECTING") return "conferindo a rota";
+  if (status === "RECOVERY_REQUIRED") return "precisa restaurar a internet";
+  if (status === "OTHER_MOD") return "outro mod no caminho";
   if (status === "NOT_FOUND") return "Discord não encontrado";
-  if (status === "UNSUPPORTED") return "não suportado nesta plataforma";
-  return "inativo";
+  if (status === "UNSUPPORTED") return "ainda não neste sistema";
+  return "desligado";
 }
 
 // O status no Linux vem do script (async); no Windows e sincrono. Guardamos o ultimo valor
@@ -455,14 +459,14 @@ async function refreshTray() {
     const status = IS_LINUX ? await linuxStatus() : getStatus();
     cachedStatus = status;
     const label = statusLabel(status);
-    tray.setToolTip(`GoLiveBypass v${app.getVersion()} — ${label}`);
+    tray.setToolTip(`GoLiveBypass v${app.getVersion()} (${label})`);
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: `GoLiveBypass v${app.getVersion()} — ${label}`, enabled: false },
+        { label: `GoLiveBypass v${app.getVersion()} (${label})`, enabled: false },
         { type: "separator" },
-        { label: "Abrir", click: showWindow },
+        { label: "Abrir o app", click: showWindow },
         {
-          label: status === "ACTIVE" ? "Desativar o bypass" : "Ativar o bypass",
+          label: status === "ACTIVE" ? "Desligar o bypass" : "Ligar o bypass",
           // Sempre clicavel: mesmo com Discord "nao encontrado" a pessoa pode tentar de novo.
           click: () => { toggleFromTray().catch(() => refreshTray()); },
         },
@@ -472,21 +476,10 @@ async function refreshTray() {
           checked: getStartup(),
           click: (item) => setStartup(item.checked),
         },
-        {
-          label: "Avisar sobre atualizações",
-          type: "checkbox",
-          checked: readAutoUpdate(),
-          click: (item) => {
-            saveAutoUpdate(item.checked);
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send("refresh-auto-update");
-            }
-          },
-        },
         { type: "separator" },
         // Sair pela bandeja / barra de menus reverte so o que e nosso.
         {
-          label: status === "ACTIVE" ? "Sair (desfaz o bypass)" : "Sair",
+          label: status === "ACTIVE" ? "Sair e desligar o túnel" : "Sair",
           click: quitApp,
         },
       ]),
@@ -500,9 +493,9 @@ async function toggleFromTray() {
   try {
     // Atualiza o menu com "trabalhando" para dar feedback imediato do clique.
     if (tray) {
-      tray.setToolTip('GoLiveBypass — trabalhando...');
+      tray.setToolTip('GoLiveBypass: um instante…');
       tray.setContextMenu(Menu.buildFromTemplate([
-        { label: 'GoLiveBypass — trabalhando...', enabled: false },
+        { label: 'GoLiveBypass: um instante…', enabled: false },
       ]));
     }
 
@@ -511,7 +504,7 @@ async function toggleFromTray() {
       if (status === "ACTIVE") await withWireSockLifecycle("desativar-linux-bandeja", () => linuxDeactivate(() => {}));
       else await withWireSockLifecycle("ativar-linux-bandeja", async () => {
         const preflight = await linuxPreflight();
-        if (!preflight.ok) throw new Error(`${linuxPreflightMessage(preflight)}${preflight.installCommand ? ` Execute: ${preflight.installCommand}` : ""}`);
+        if (!preflight.ok) throw new Error(`${linuxPreflightMessage(preflight)}${preflight.installCommand ? ` Cola isto no terminal: ${preflight.installCommand}` : ""}`);
         return linuxActivate(() => {});
       });
     } else if (getStatus() === "ACTIVE") {
@@ -587,10 +580,16 @@ function waitForStatusNotifier(timeoutMs = 10000): Promise<void> {
   });
 }
 
+// UAC uma vez no arranque do GoLiveBypass.exe. Sem o lock ainda: a copia
+// sem privilegio nao pode ficar dona da instancia unica.
+const windowsElevation = IS_WINDOWS ? ensureWindowsAdmin() : "ok";
+
 // Com o app morando na bandeja, rodar o exe de novo nao pode empilhar uma segunda copia:
 // ela morre aqui e a janela da primeira aparece.
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
+const gotLock = windowsElevation === "ok" && app.requestSingleInstanceLock();
+if (windowsElevation !== "ok") {
+  app.exit(windowsElevation === "denied" ? 1 : 0);
+} else if (!gotLock) {
   app.quit();
 } else {
   app.on("second-instance", () => showWindow());
@@ -703,9 +702,6 @@ if (!gotLock) {
     // evita o Tray cair para o GtkStatusIcon, que o Plasma 6 nao exibe.
     waitForStatusNotifier().then(createTray);
     app.on("activate", showWindow);
-    // Checa por atualizacao na release do GitHub (Windows portable: baixa e substitui;
-    // Mac/Linux: autoUpdater nativo). Roda sozinho e em silencio se nao houver nada.
-    setupUpdater(() => mainWindow, () => readAutoUpdate(), () => readUpdateChannel());
   });
 }
 
@@ -726,6 +722,13 @@ app.on("before-quit", (event) => {
   // O quit e limpo: o marcador de sessao morre aqui, para o boot seguinte nao tentar
   // reverter nada (a reversao abaixo e a que vale).
   clearSessionMarker();
+  const stayLoggedIn = readSharedSettings().protonStayLoggedIn !== false;
+  if (!stayLoggedIn) {
+    try {
+      const sessionFile = proton.getProtonSessionFile(settingsDir());
+      if (fs.existsSync(sessionFile)) fs.unlinkSync(sessionFile);
+    } catch {}
+  }
   closeLogWindow();
   stopLogWatch();
   // A limpeza precisa terminar antes do processo morrer. Antes, o app.quit() imediato
@@ -768,16 +771,18 @@ interface DiscordInstall {
   bundlePath?: string;
 }
 
+let discordInstallsCache: { at: number; value: DiscordInstall[] } | null = null;
+let lastDiscordInstallSig = "";
+let discordRunningCache: { at: number; value: boolean } | null = null;
+
 function getWinDiscordInstalls(): DiscordInstall[] {
   const localAppData = process.env.LOCALAPPDATA;
-  discordscan.scanInicio("win32", localAppData);
   if (!localAppData) return [];
 
   const installs: DiscordInstall[] = [];
   for (const flavour of ALL_APPS) {
     const rootPath = path.join(localAppData, flavour);
     const existe = diskFs.existsSync(rootPath);
-    discordscan.scanRaiz(rootPath, existe, flavour);
     if (!existe) continue;
 
     const candidate = findWindowsDiscordInstall(
@@ -788,10 +793,15 @@ function getWinDiscordInstalls(): DiscordInstall[] {
     );
     if (!candidate) continue;
 
-    discordscan.scanInstall(candidate.resources, flavour);
     installs.push({ flavour, ...candidate });
   }
-  discordscan.scanResultado(installs.length);
+  const sig = installs.map((i) => `${i.flavour}:${i.resources}`).join("|");
+  if (sig !== lastDiscordInstallSig) {
+    lastDiscordInstallSig = sig;
+    discordscan.scanInicio("win32", localAppData);
+    for (const install of installs) discordscan.scanInstall(install.resources, install.flavour);
+    discordscan.scanResultado(installs.length);
+  }
   return installs;
 }
 
@@ -826,9 +836,14 @@ function getDiscordInstalls(): DiscordInstall[] {
   // win32/mac aqui so vale nos outros SOs — e logar o scan win no Linux so
   // confundiria o diagnostico ("localappdata=ausente" sem sentido).
   if (IS_LINUX) return [];
-  return withNoAsar(() =>
+  if (discordInstallsCache && Date.now() - discordInstallsCache.at < 5_000) {
+    return discordInstallsCache.value;
+  }
+  const value = withNoAsar(() =>
     isMac ? getMacDiscordInstalls() : getWinDiscordInstalls(),
   );
+  discordInstallsCache = { at: Date.now(), value };
+  return value;
 }
 
 function discordProcessState(): ProcessProbeState {
@@ -873,7 +888,12 @@ function discordProcessState(): ProcessProbeState {
 }
 
 function discordIsRunning(): boolean {
-  return discordProcessState() === "running";
+  if (discordRunningCache && Date.now() - discordRunningCache.at < 2_000) {
+    return discordRunningCache.value;
+  }
+  const value = discordProcessState() === "running";
+  discordRunningCache = { at: Date.now(), value };
+  return value;
 }
 
 async function waitUntilDiscordGone(tries = 40, delayMs = 250) {
@@ -949,6 +969,7 @@ function killMacProcesses(names: readonly string[], signal?: "-9") {
 }
 
 async function killDiscord() {
+  discordRunningCache = { at: Date.now(), value: false };
   if (isMac) {
     const mains = MAC_APPS.map((macApp) => macApp.processName);
     killMacProcesses(mains);
@@ -1013,7 +1034,7 @@ function assertDiscordSignature(bundlePath: string | undefined) {
       "O macOS trata esse Discord como outro app: pede a senha do Keychain (Discord Safe Storage) e o cliente cai. Desativar o bypass não devolve a assinatura original da Discord Inc.",
       "",
       "Baixe o Discord de novo em https://discord.com/download e substitua o app em Aplicativos.",
-      "Não apague ~/Library/Application Support/discord — sua conta continua lá.",
+      "Não apague ~/Library/Application Support/discord. Sua conta continua lá.",
     ].join("\n"),
   );
 }
@@ -1083,6 +1104,7 @@ async function safeRemove(targetPath: string) {
 }
 
 function startDiscord(install: DiscordInstall) {
+  discordRunningCache = { at: Date.now(), value: true };
   try {
     // exec() deixava o stdout do Discord preso num pipe nosso: quando a GUI morria (ou o
     // buffer do exec enchia), o pipe quebrava, e qualquer log de excecao do processo
@@ -1206,6 +1228,45 @@ async function requireFunctionalWindowsRoute(direct: RouteProbeResult | null, ge
   throw new Error(message);
 }
 
+async function escolherMelhorRotaProton(): Promise<boolean> {
+  const s = readSharedSettings() as { vpnMode?: string; protonUsername?: string; protonCountry?: string; protonFreeOnly?: boolean; protonAutoPing?: boolean };
+  const username = s.protonUsername || "";
+  if ((s.vpnMode || "proton") !== "proton" || !username) return false;
+  const gen = await proton.generateOptimalProtonConfig(settingsDir(), {
+    username,
+    countries: s.protonCountry || undefined,
+    freeOnly: s.protonFreeOnly !== false,
+    autoPing: s.protonAutoPing !== false,
+  });
+  if (!gen.success) {
+    logger.warn("proton", "escolha.rota.falhou", { erro: gen.error || "" });
+    return false;
+  }
+  updateSharedSettings({ protonLastServer: gen });
+  logger.info("proton", "escolha.rota.ok", { server: gen.server });
+  return true;
+}
+
+async function reabrirTunelWindowsAposQueda(generation: number, operation: string): Promise<void> {
+  const installs = getDiscordInstalls();
+  const direct = await directRouteBaseline(generation);
+  const scope = prepareDiscordScopeProbes(installs, proton.findProtonConfgenExe());
+  try {
+    await startWireSockService(settingsDir(), undefined, windowsAllowedAppPaths(installs));
+    windowsRouteState = "probing";
+    refreshWindowStatus();
+    await requireFunctionalWindowsRoute(direct, generation, scope.probes);
+  } finally {
+    await scope.cleanup();
+  }
+  if (!(await startDiscordAndConfirm(installs, operation))) {
+    throw new Error("a nova rota foi comprovada, mas o Discord não iniciou");
+  }
+  windowsRouteVerified = true;
+  windowsRouteState = "active";
+  startWindowsRouteWatchdog(direct);
+}
+
 function stopWindowsRouteWatchdog() {
   if (windowsRouteWatchdogTimer) clearInterval(windowsRouteWatchdogTimer);
   windowsRouteWatchdogTimer = null;
@@ -1242,8 +1303,25 @@ function startWindowsRouteWatchdog(direct: RouteProbeResult | null) {
       await killDiscord();
       const recovery = await recoverWireSockNetwork();
       clearSessionMarker();
-      windowsRouteState = recovery.ok ? "inactive" : "recovery_required";
-      logger.error("wiresock", "route.watchdog.rollback", { ok: recovery.ok, residual: recovery.residual.join(", ") });
+      if (!recovery.ok) {
+        windowsRouteState = "recovery_required";
+        logger.error("wiresock", "route.watchdog.rollback", { ok: false, residual: recovery.residual.join(", ") });
+        refreshWindowStatus();
+        void refreshTray();
+        return;
+      }
+      try {
+        await escolherMelhorRotaProton();
+        await reabrirTunelWindowsAposQueda(generation, "route-watchdog-recovery");
+        logger.info("wiresock", "route.watchdog.reroute.ok", {});
+      } catch (err) {
+        logger.error("wiresock", "route.watchdog.reroute.falhou", { erro: String((err as Error)?.message ?? err) });
+        await killDiscord();
+        const again = await recoverWireSockNetwork();
+        windowsRouteVerified = false;
+        windowsRouteState = again.ok ? "inactive" : "recovery_required";
+        logger.error("wiresock", "route.watchdog.rollback", { ok: again.ok, residual: again.residual.join(", ") });
+      }
       refreshWindowStatus();
       void refreshTray();
     });
@@ -1500,7 +1578,7 @@ async function executarAtivacao(event: any) {
     }
   } else {
     if (!fs.existsSync(wgConf)) {
-      throw new Error("Nenhuma configuração WireGuard (.conf) foi selecionada. Por favor, importe uma configuração antes de ativar.");
+      throw new Error("Falta um .conf do WireGuard. Importa um arquivo antes de ligar.");
     }
   }
 
@@ -1837,6 +1915,7 @@ function startLinuxHealthWatchdog() {
       await withWireSockLifecycle("recuperar-linux", async () => {
         logger.info("linux", "recuperacao.inicio", { tentativa: linuxRecoveryCount, motivo: result.reason });
         await linuxDeactivate(() => {});
+        await escolherMelhorRotaProton();
         await linuxActivate(() => {});
         logger.info("linux", "recuperacao.ok", { tentativa: linuxRecoveryCount });
       }).catch((error) => logger.error("linux", "recuperacao.falhou", { erro: String((error as Error)?.message ?? error) }));
@@ -2047,7 +2126,7 @@ function tailErroScript(stderr: string, linhas: number): string {
 async function linuxActivate(onChunk: (c: string) => void) {
   const preflight = await linuxPreflight();
   if (!preflight.ok) {
-    const comando = preflight.installCommand ? ` Execute: ${preflight.installCommand}` : "";
+    const comando = preflight.installCommand ? ` Cola isto no terminal: ${preflight.installCommand}` : "";
     throw new Error(`${linuxPreflightMessage(preflight)}${comando}`);
   }
   // Dois cliques da bandeja podem ter lido INACTIVE antes de entrarem na fila.
@@ -3082,14 +3161,7 @@ export function saveAutoUpdate(enabled: boolean) {
 }
 
 export function readAutoUpdate(): boolean {
-  try {
-    const file = path.join(settingsDir(), "settings.json");
-    if (!fs.existsSync(file)) return true;
-    const data = JSON.parse(fs.readFileSync(file, "utf8"));
-    return typeof data.autoUpdate === "boolean" ? data.autoUpdate : true;
-  } catch {
-    return true;
-  }
+  return false;
 }
 
 // Canal de atualizacao: "stable" (padrao) ou "beta" (opt-in dos testadores —
@@ -3413,7 +3485,7 @@ ipcMain.handle("test-proxy", async (_event, proxyRaw: unknown) => {
   if (country === "BR") {
     return {
       ok: false,
-      error: `Tunel OK (${ms}ms), mas a saida e BR — o Discord continua bloqueando Go Live. Use VPS/Tor fora do Brasil.`,
+      error: `Tunel OK (${ms}ms), mas a saida e BR. O Discord continua bloqueando Go Live. Use VPS/Tor fora do Brasil.`,
       ms,
       country,
       host: parsed.host,
@@ -3432,31 +3504,23 @@ ipcMain.handle("test-proxy", async (_event, proxyRaw: unknown) => {
 });
 
 // ------------------------------------------------------------------ diagnostico / modo dev
-const ISSUE_REPO = "bezumiya/GoLiveBypass";
-// A label "gui" precisa existir no repo (criar uma vez no GitHub). Sem ela o form ainda abre;
-// a API de reports usa ISSUE_LABELS no servidor.
-const ISSUE_LABELS = ["bug", "gui"];
 
 function logFilePath() {
   return path.join(settingsDir(), "golivebypass.log");
 }
 
 function maskSecrets(text: string): string {
-  return text
-    .replace(
-      /(socks5|socks4|https?|http):\/\/([^/\s@]+)@/gi,
-      (_m, scheme: string, creds: string) => {
-        const user = creds.split(":")[0] || "user";
-        return `${scheme}://${user}:***@`;
-      },
-    )
-    .replace(/(pass|password|senha)\s*[:=]\s*\S+/gi, "$1=***");
+  const s = readSharedSettings() as { proxy?: string; protonUsername?: string };
+  const segredos = extrairSegredosDaProxy((s.proxy as string) || "");
+  const user = typeof s.protonUsername === "string" ? s.protonUsername.trim() : "";
+  if (user.length >= 3) segredos.push(user);
+  return redigir(text, segredos);
 }
 
 function readLogTail(maxBytes = 48_000): string {
   const file = logFilePath();
   try {
-    if (!fs.existsSync(file)) return "(ainda nao ha golivebypass.log — ative o bypass uma vez)";
+    if (!fs.existsSync(file)) return "(ainda nao ha golivebypass.log. Ative o bypass uma vez)";
     const size = fs.statSync(file).size;
     const start = Math.max(0, size - maxBytes);
     const fd = fs.openSync(file, "r");
@@ -3567,7 +3631,7 @@ function startLogWatch() {
       logWatchOffset = size;
     } else {
       logWatchOffset = 0;
-      pushLogChunk("(aguardando golivebypass.log — aparece quando o Discord roda com o bypass)\n");
+      pushLogChunk("(aguardando golivebypass.log. Aparece quando o Discord roda com o bypass)\n");
     }
   } catch (error) {
     pushLogChunk(
@@ -3619,106 +3683,9 @@ ipcMain.handle("get-diagnostic", async (_event, payload: unknown) => {
   return {
     text: await buildDiagnostic(status, note),
     logPath: logFilePath(),
-    apiConfigured: Boolean(readBugReportConfig()),
+    apiConfigured: false,
   };
 });
-
-function readBugReportConfig(): { baseUrl: string; token: string } | null {
-  // Prioridade: settings.json da pasta compartilhada, depois env do processo.
-  // Sem os dois, o botao cai no form do GitHub (sem segredo embutido no binario).
-  let url = (process.env.GOLIVE_BUG_API_URL || "").trim().replace(/\/$/, "");
-  let token = (process.env.GOLIVE_BUG_API_TOKEN || "").trim();
-  try {
-    const file = path.join(settingsDir(), "settings.json");
-    if (fs.existsSync(file)) {
-      const data = JSON.parse(fs.readFileSync(file, "utf8"));
-      if (typeof data.bugReportApiUrl === "string" && data.bugReportApiUrl.trim()) {
-        url = data.bugReportApiUrl.trim().replace(/\/$/, "");
-      }
-      if (typeof data.bugReportToken === "string" && data.bugReportToken.trim()) {
-        token = data.bugReportToken.trim();
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  if (!url || !token) return null;
-  return { baseUrl: url, token };
-}
-
-async function postBugReportToApi(
-  cfg: { baseUrl: string; token: string },
-  title: string,
-  description: string,
-  status: string,
-): Promise<{ ok: true; issueUrl: string; issueNumber?: number } | { ok: false; error: string }> {
-  const endpoint = `${cfg.baseUrl}/v1/reports`;
-  const wgTunel = !isMac && status === "ACTIVE" ? await wgStatsProvider() : undefined;
-  const body = {
-    title,
-    description,
-    log: maskSecrets(readLogTail(200_000)),
-    meta: {
-      app: "golive-gui",
-      version: app.getVersion(),
-      os: `${process.platform} ${process.arch}`,
-      electron: process.versions.electron ?? "",
-      status,
-      routeMode: readNetMode(),
-      // Mesmo raciocinio do submitBugReport: handshake velho/trafego parado com bypass ativo
-      // e o sinal mais direto de tunel morto ou saturado (ver electron/wgstats.ts).
-      wg_handshake_ha_s: wgTunel?.ok ? String(wgTunel.handshakeAgoS ?? "nunca") : "indisponivel",
-      wg_rx_kb: wgTunel?.ok && wgTunel.rxBytes !== null ? String(Math.round(wgTunel.rxBytes / 1024)) : "indisponivel",
-      wg_tx_kb: wgTunel?.ok && wgTunel.txBytes !== null ? String(Math.round(wgTunel.txBytes / 1024)) : "indisponivel",
-      wg_erro: !wgTunel?.ok ? (wgTunel?.error ?? "?") : "",
-    },
-  };
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    const text = await res.text();
-    let data: Record<string, unknown> = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      /* corpo nao-json */
-    }
-
-    if (!res.ok) {
-      const err =
-        typeof data.error === "string"
-          ? data.error
-          : `API respondeu ${res.status}`;
-      return { ok: false, error: err };
-    }
-
-    const issueUrl =
-      typeof data.issue_url === "string"
-        ? data.issue_url
-        : typeof data.html_url === "string"
-          ? data.html_url
-          : "";
-    if (!issueUrl) return { ok: false, error: "API nao devolveu issue_url" };
-    return {
-      ok: true,
-      issueUrl,
-      issueNumber: typeof data.issue_number === "number" ? data.issue_number : undefined,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
 
 ipcMain.handle("open-bug-report", async (_event, payload: unknown) => {
   const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
@@ -3727,80 +3694,19 @@ ipcMain.handle("open-bug-report", async (_event, payload: unknown) => {
     typeof p.note === "string" && p.note.trim()
       ? p.note.trim()
       : "(descreva o que aconteceu, o que esperava, e se câmera / Go Live / região da call)";
-  const titleRaw =
-    typeof p.title === "string" && p.title.trim()
-      ? p.title.trim()
-      : `[GUI] problema com bypass (${status})`;
-  const title = titleRaw.slice(0, 180);
 
   const fullBody = await buildDiagnostic(status, note);
   clipboard.writeText(fullBody);
-
-  // 1) API (log completo, labels no servidor) — se configurada.
-  const apiCfg = readBugReportConfig();
-  if (apiCfg) {
-    const posted = await postBugReportToApi(apiCfg, title, note, status);
-    if (posted.ok) {
-      await shell.openExternal(posted.issueUrl);
-      return {
-        ok: true,
-        via: "api" as const,
-        url: posted.issueUrl,
-        issueNumber: posted.issueNumber,
-        copied: true,
-        truncated: false,
-      };
-    }
-    // Cai no form do GitHub, mas avisa o motivo no retorno.
-    const maxBody = 5500;
-    const bodyForUrl =
-      fullBody.length > maxBody
-        ? `${fullBody.slice(0, maxBody)}\n\n…(truncado — cole o diagnóstico do clipboard)\n\n_API falhou: ${posted.error}_`
-        : `${fullBody}\n\n_API falhou: ${posted.error}_`;
-    const params = new URLSearchParams({
-      title,
-      body: bodyForUrl,
-      labels: ISSUE_LABELS.join(","),
-    });
-    const url = `https://github.com/${ISSUE_REPO}/issues/new?${params.toString()}`;
-    await shell.openExternal(url);
-    return {
-      ok: true,
-      via: "github" as const,
-      url,
-      copied: true,
-      truncated: fullBody.length > maxBody,
-      apiError: posted.error,
-    };
-  }
-
-  // 2) Fallback: form do GitHub (sem token no app).
-  const maxBody = 5500;
-  const bodyForUrl =
-    fullBody.length > maxBody
-      ? `${fullBody.slice(0, maxBody)}\n\n…(truncado — cole o diagnóstico completo do clipboard)`
-      : fullBody;
-
-  const params = new URLSearchParams({
-    title,
-    body: bodyForUrl,
-    labels: ISSUE_LABELS.join(","),
-  });
-  const url = `https://github.com/${ISSUE_REPO}/issues/new?${params.toString()}`;
-  await shell.openExternal(url);
-
   return {
     ok: true,
-    via: "github" as const,
-    url,
     copied: true,
-    truncated: fullBody.length > maxBody,
+    truncated: false,
+    url: "",
   };
 });
 
 ipcMain.handle("open-log-folder", async () => {
-  const dir = settingsDir();
-  fs.mkdirSync(dir, { recursive: true });
+  const dir = logsDir.garantirLogsDir(app.getPath("home"), process.platform);
   await shell.openPath(dir);
   return dir;
 });
@@ -3998,17 +3904,13 @@ ipcMain.handle("get-proton-settings", async () => {
     country: (s.protonCountry as string) || "",
     freeOnly: s.protonFreeOnly !== false,
     autoPing: s.protonAutoPing !== false,
+    stayLoggedIn: s.protonStayLoggedIn !== false,
     lastServer: s.protonLastServer,
   };
 });
 
 ipcMain.handle("set-proton-settings", async (_event, settings: any) => {
-  updateSharedSettings({
-    protonUsername: settings.username,
-    protonCountry: settings.country,
-    protonFreeOnly: settings.freeOnly !== false,
-    protonAutoPing: settings.autoPing !== false,
-  });
+  updateSharedSettings(proton.protonSettingsPatch(settings ?? {}));
   return true;
 });
 
@@ -4162,15 +4064,20 @@ ipcMain.handle("login-proton", async (event, payload: { username: string; passwo
       }
     });
     const s = readSharedSettings() as any;
+    const stayLoggedIn = s.protonStayLoggedIn !== false;
     try {
-      const gen = await proton.generateOptimalProtonConfig(settingsDir(), {
-        username: authenticatedUsername,
-        countries: (s.protonCountry as string) || undefined,
-        freeOnly: s.protonFreeOnly !== false,
-        autoPing: s.protonAutoPing !== false,
-      });
-      if (gen.success) {
-        updateSharedSettings({ protonLastServer: gen });
+      if (stayLoggedIn && proton.hasReusableProtonConfig(settingsDir()) && s.protonLastServer) {
+        logger.info("proton", "reusando certificado WireGuard existente");
+      } else {
+        const gen = await proton.generateOptimalProtonConfig(settingsDir(), {
+          username: authenticatedUsername,
+          countries: (s.protonCountry as string) || undefined,
+          freeOnly: s.protonFreeOnly !== false,
+          autoPing: s.protonAutoPing !== false,
+        });
+        if (gen.success) {
+          updateSharedSettings({ protonLastServer: gen });
+        }
       }
     } catch (err) {
       logger.warn("proton", "erro ao gerar rota inicial apos login", { erro: String(err) });
@@ -4260,7 +4167,7 @@ ipcMain.handle("optimize-proton-route", async (_event, options?: { country?: str
         } else if (IS_LINUX) {
           const preflight = await linuxPreflight();
           if (!preflight.ok) {
-            throw new Error(`${linuxPreflightMessage(preflight)}${preflight.installCommand ? ` Execute: ${preflight.installCommand}` : ""}`);
+            throw new Error(`${linuxPreflightMessage(preflight)}${preflight.installCommand ? ` Cola isto no terminal: ${preflight.installCommand}` : ""}`);
           }
           const refreshed = await runScript(["--refresh-route"]);
           if (refreshed.code !== 0) {

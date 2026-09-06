@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GoLiveBypass — Logs</title>
+    <title>GoLiveBypass: logs</title>
     <script>
       try {
         var t = localStorage.getItem('golivebypass-theme');
@@ -19,13 +19,13 @@
     <div class="logs-shell">
       <header class="logs-header">
         <h1>Diagnóstico</h1>
-        <p class="logs-sub">Logs ao vivo e relato de bug</p>
+        <p class="logs-sub">Logs ao vivo e um jeito rápido de mandar o que deu errado</p>
       </header>
 
       <div class="dev-toolbar">
-        <button type="button" class="dev-btn" id="reportBugBtn">Reportar bug</button>
+        <button type="button" class="dev-btn" id="reportBugBtn">Mandar um relato</button>
         <button type="button" class="dev-btn" id="copyDiagBtn">Copiar diagnóstico</button>
-        <button type="button" class="dev-btn" id="openLogFolderBtn">Pasta de logs</button>
+        <button type="button" class="dev-btn" id="openLogFolderBtn">Abrir a pasta de logs</button>
       </div>
 
       <label class="dev-note-label" for="bugNoteInput">O que aconteceu? (vai na issue)</label>
@@ -33,7 +33,7 @@
         id="bugNoteInput"
         class="dev-note"
         rows="2"
-        placeholder="Ex.: câmera ok, Go Live carrega e dá 2012; região da call Brazil; modo Tor."
+        placeholder="Ex.: câmera ok, Go Live trava no carregando; call no Brasil; Proton ligada."
       ></textarea>
 
       <div class="log-console" id="logConsole" aria-live="polite"></div>

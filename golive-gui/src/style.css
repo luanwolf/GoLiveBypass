@@ -2,10 +2,8 @@
    GoLiveBypass — tema claro/escuro, tokens semânticos
    Base: ui-ux-pro-max (Dark Mode OLED + Inter, contraste 4.5:1)
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  --sans: 'Inter', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  --sans: 'Inter', 'Segoe UI', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
 
   /* forma */
@@ -162,16 +160,12 @@ html[data-theme='dark'] .page-ambient::before {
   height: 52px;
 }
 
-.darwin .container {
-  padding-top: 88px;
-}
-
 .container {
   position: relative;
   z-index: 1;
   width: 100%;
   max-width: 380px;
-  padding: 68px 30px 26px;
+  padding: 80px 40px 40px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -180,16 +174,8 @@ html[data-theme='dark'] .page-ambient::before {
   flex-shrink: 0;
 }
 
-@media (max-height: 700px) {
-  .container {
-    gap: 16px;
-    padding-top: 44px;
-    padding-bottom: 20px;
-  }
-
-  .darwin .container {
-    padding-top: 68px;
-  }
+.darwin .container {
+  padding-top: 96px;
 }
 
 /* Entrada em cascata — quieto, 600ms, translateY(12px) */
@@ -297,11 +283,6 @@ html[data-theme='dark'] .page-ambient::before {
   left: 14px;
 }
 
-.corner--br {
-  bottom: 15px;
-  right: 14px;
-}
-
 .icon-btn {
   position: relative;
   display: grid;
@@ -338,7 +319,7 @@ html[data-theme='dark'] .page-ambient::before {
   height: 18px;
 }
 
-/* tooltip dos botoes — abre para dentro da janela em cada canto */
+/* tooltip: ao lado do icone, pra nao cortar nas bordas */
 .icon-btn::after {
   content: attr(data-tip);
   position: absolute;
@@ -351,37 +332,17 @@ html[data-theme='dark'] .page-ambient::before {
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-3px);
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
   transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
   z-index: 40;
-}
-
-.corner--tr .icon-btn::after {
-  top: calc(100% + 8px);
-  left: 0;
-}
-
-.corner--bl .icon-btn::after,
-.corner--br .icon-btn::after {
-  bottom: calc(100% + 8px);
-  left: 0;
 }
 
 .icon-btn:hover::after,
 .icon-btn:focus-visible::after {
   opacity: 1;
-  transform: none;
-}
-
-/* Discord: so o SVG oficial, sem texto */
-.discord-btn {
-  color: var(--discord);
-}
-
-.discord-btn svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
+  transform: translateY(-50%);
 }
 
 /* Botao de configuracoes (canto superior): herda o visual do .icon-btn. */
@@ -782,7 +743,7 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
+  padding: 18px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
@@ -1083,6 +1044,26 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
 
 .proton-hint a:hover {
   color: #5B3CE6;
+}
+
+.proton-stay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.proton-stay input {
+  accent-color: #6D4AFF;
+}
+
+.proton-stay-hint {
+  margin-top: 0;
 }
 
 /* Visão Conectada Proton */
@@ -1775,6 +1756,9 @@ body.logs-window {
   gap: 8px;
   margin-top: 2px;
 }
+.bug-btn--left {
+  margin-right: auto;
+}
 /* Estado de sucesso: botao unico centralizado sob a mensagem de agradecimento */
 .bug-dialog--success .bug-dialog__actions {
   justify-content: center;
@@ -2188,16 +2172,17 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
    Composição principal — ação e conexão lado a lado
    ------------------------------------------------------------ */
 .container {
-  max-width: 760px;
-  padding-left: 24px;
-  padding-right: 24px;
+  max-width: 920px;
+  padding-left: 40px;
+  padding-right: 40px;
+  padding-bottom: 40px;
 }
 
 .control-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
-  gap: 14px;
+  gap: 20px;
   width: 100%;
 }
 
@@ -2207,7 +2192,7 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
   justify-content: center;
   gap: 12px;
   min-width: 0;
-  padding: 14px;
+  padding: 20px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--surface);

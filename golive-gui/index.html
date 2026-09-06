@@ -41,7 +41,7 @@
           </div>
 
           <p class="tagline">
-            Devolve o Go Live e a c&acirc;mera no Discord, no Brasil.
+            Libera o Go Live e a c&acirc;mera no Discord, pra quem t&aacute; no Brasil.
           </p>
         </header>
 
@@ -49,8 +49,8 @@
           class="icon-btn report-btn corner corner--bl"
           id="bugBtn"
           type="button"
-          aria-label="Reportar bug"
-          data-tip="Reportar bug"
+          aria-label="Contar o que deu errado"
+          data-tip="Algo deu errado?"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M8 8a4 4 0 0 1 8 0v1a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3V8Z" />
@@ -62,28 +62,13 @@
           </svg>
         </button>
 
-        <a
-          href="https://discord.gg/ZeNs47vE4R"
-          target="_blank"
-          rel="noopener"
-          class="icon-btn discord-btn corner corner--br"
-          aria-label="Entrar no servidor de suporte"
-          data-tip="Suporte"
-        >
-          <svg viewBox="0 0 127.14 96.36" aria-hidden="true">
-            <path
-              d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-80.15ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.33,46,96.22,53,91.08,65.69,84.69,65.69Z"
-            />
-          </svg>
-        </a>
-
         <button
           class="icon-btn settings-btn corner corner--tr"
           id="settingsBtn"
           type="button"
           aria-label="Abrir configurações"
           aria-haspopup="dialog"
-          data-tip="Configurações"
+          data-tip="Ajustes"
         >
           <svg
             viewBox="0 0 24 24"
@@ -102,14 +87,14 @@
         <div class="control-layout">
           <section class="bypass-column" aria-label="Controle do bypass">
             <div class="bypass-heading">
-              <span class="bypass-kicker">Ação principal</span>
+              <span class="bypass-kicker">Bypass</span>
             </div>
-            <p class="bypass-description">Libere o Go Live no Discord usando a rota escolhida ao lado.</p>
+            <p class="bypass-description">Liga o túnel só no Discord. Navegador, jogos e o resto do PC continuam na sua internet.</p>
 
             <div class="status-card" id="statusCard" hidden>
               <span class="status-indicator" id="statusIndicator"></span>
-              <span id="statusText">Verificando...</span>
-              <span class="status-tag" id="statusTag">—</span>
+              <span id="statusText">Dá um segundo…</span>
+              <span class="status-tag" id="statusTag">...</span>
               <code id="linuxPreflightCommand" class="linux-preflight-command" hidden></code>
             </div>
 
@@ -132,7 +117,7 @@
           >
             <rect x="6" y="6" width="12" height="12" rx="2" />
           </svg>
-          <span class="btn-text" id="btnText">Carregando</span>
+          <span class="btn-text" id="btnText">Um instante…</span>
           <div class="spinner" id="btnSpinner" aria-hidden="true"></div>
             </button>
 
@@ -141,9 +126,8 @@
               <span class="switch-track" aria-hidden="true">
                 <span class="switch-thumb"></span>
               </span>
-              <span id="startupLabel">Iniciar com o Windows</span>
+              <span id="startupLabel">Abrir junto com o Windows</span>
             </label>
-            <p class="bypass-note"><span aria-hidden="true">●</span> Só o Discord usa o túnel.</p>
             <button id="restoreInternetBtn" class="restore-network-btn" type="button" hidden>Restaurar internet</button>
           </section>
 
@@ -151,20 +135,20 @@
             <div class="vpn-config-card" id="vpnConfigCard">
           <div class="vpn-card-heading">
             <div>
-              <span class="vpn-card-kicker">Conexão segura</span>
-              <p class="vpn-card-title">Escolha como rotear o Discord</p>
+              <span class="vpn-card-kicker">Sua rota</span>
+              <p class="vpn-card-title">Como o Discord sai pra internet</p>
             </div>
           </div>
 
           <!-- Switcher de modo -->
           <div class="vpn-mode-tabs" role="tablist" aria-label="Método de conexão">
-            <button type="button" class="vpn-mode-tab vpn-mode-tab--active" id="tabProton" role="tab" aria-selected="true" aria-controls="panelProton" title="ProtonVPN Otimizado (Menor Ping)">
+            <button type="button" class="vpn-mode-tab vpn-mode-tab--active" id="tabProton" role="tab" aria-selected="true" aria-controls="panelProton" title="A Proton escolhe o servidor mais rápido pra você">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
-              <span>Proton Otimizado</span>
+              <span>Proton (automático)</span>
             </button>
-            <button type="button" class="vpn-mode-tab" id="tabCustom" role="tab" aria-selected="false" aria-controls="panelCustom" title="Arquivo WireGuard .conf customizado">
+            <button type="button" class="vpn-mode-tab" id="tabCustom" role="tab" aria-selected="false" aria-controls="panelCustom" title="Se você já tem um arquivo WireGuard .conf, é por aqui">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
@@ -178,9 +162,9 @@
             <!-- Formulario de Login -->
             <div id="protonAuthForm" class="proton-auth-form" hidden>
               <p class="proton-auto-hint">
-                <span class="proton-panel-title">Rota automática</span>
-                <span class="proton-recommended">Recomendado</span>
-                <span class="proton-panel-copy">A Proton escolhe o servidor com menor ping.</span>
+                <span class="proton-panel-title">Deixa a Proton escolher</span>
+                <span class="proton-recommended">Mais fácil</span>
+                <span class="proton-panel-copy">Entra na conta. O app escolhe o servidor mais rápido.</span>
               </p>
 
               <div class="proton-form-fields">
@@ -192,7 +176,7 @@
                   <label class="proton-field">
                     <span>Senha</span>
                     <span class="proton-password-control">
-                      <input type="password" id="protonPassword" class="proton-input" placeholder="Sua senha" autocomplete="current-password" />
+                      <input type="password" id="protonPassword" class="proton-input" placeholder="a senha da sua Proton" autocomplete="current-password" />
                       <button type="button" id="protonPasswordToggle" class="proton-password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
                         <svg id="protonPasswordShowIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/>
@@ -213,8 +197,8 @@
                 <div class="proton-2fa-dialog__panel" role="document">
                   <div class="proton-2fa-dialog__header">
                     <div>
-                      <span class="proton-2fa-dialog__eyebrow">Segurança extra</span>
-                      <h2 id="proton2FADialogTitle">Código de autenticação</h2>
+                      <span class="proton-2fa-dialog__eyebrow">Um passo a mais</span>
+                      <h2 id="proton2FADialogTitle">Código do autenticador</h2>
                     </div>
                     <button type="button" id="proton2FACloseBtn" class="proton-2fa-dialog__close" aria-label="Fechar código 2FA">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -222,23 +206,24 @@
                       </svg>
                     </button>
                   </div>
-                  <p class="proton-2fa-dialog__hint">Digite o código de 6 a 8 dígitos do seu aplicativo autenticador.</p>
+                  <p class="proton-2fa-dialog__hint">Abre o app autenticador e cola o código de 6 a 8 dígitos. Ele muda o tempo todo, então use o atual.</p>
                   <label class="proton-field proton-2fa-dialog__field">
                     <span>Código 2FA</span>
                     <input type="text" id="proton2FA" class="proton-input" placeholder="000000" maxlength="8" autocomplete="one-time-code" inputmode="numeric" />
                   </label>
                   <div class="proton-2fa-dialog__actions">
-                    <button type="button" id="proton2FACancelBtn" class="proton-2fa-dialog__cancel">Cancelar</button>
-                    <button type="button" id="proton2FAConfirmBtn" class="proton-2fa-dialog__confirm">Usar código</button>
+                    <button type="button" id="proton2FACancelBtn" class="proton-2fa-dialog__cancel">Agora não</button>
+                    <button type="button" id="proton2FAConfirmBtn" class="proton-2fa-dialog__confirm">Entrar com o código</button>
                   </div>
                 </div>
               </div>
               <button type="button" id="protonLoginBtn" class="proton-btn proton-btn--primary">
-                <span id="protonLoginBtnText">Conectar conta Proton</span>
+                <span id="protonLoginBtnText">Entrar na Proton</span>
                 <div class="spinner" id="protonLoginSpinner" aria-hidden="true" hidden></div>
               </button>
               <p class="proton-hint">
-                A conta grátis já é suficiente. <a href="https://account.proton.me/signup" target="_blank" rel="noopener">Criar conta Proton</a>
+                Conta grátis já resolve. Ainda não tem?
+                <a href="https://account.proton.me/signup" target="_blank" rel="noopener">Criar uma Proton</a>
               </p>
             </div>
 
@@ -248,14 +233,13 @@
                 <div class="proton-user-info">
                   <span class="proton-dot" id="protonDot"></span>
                   <div>
-                    <span class="proton-status-label">Conta conectada</span>
-                    <span id="protonUserDisplay" class="proton-private-email" tabindex="0" title="Passe o mouse para visualizar">Verificando conta Proton...</span>
+                    <span class="proton-status-label">Proton conectada</span>
+                    <span id="protonUserDisplay" class="proton-private-email" tabindex="0" title="Passe o mouse pra ver o e-mail">Procurando sua conta…</span>
                   </div>
                 </div>
-                <button type="button" id="protonLogoutBtn" class="proton-logout-btn" title="Desconectar conta Proton">Sair</button>
+                <button type="button" id="protonLogoutBtn" class="proton-logout-btn" title="Sair da Proton neste app">Sair</button>
               </div>
 
-              <div class="proton-step-label">2 <span>Escolha sua rota</span></div>
               <div class="proton-controls-row">
                 <select id="protonCountrySelect" class="proton-select">
                   <option value="">Automático · menor ping</option>
@@ -263,29 +247,34 @@
                   <option value="NL">Holanda</option>
                   <option value="JP">Japão</option>
                 </select>
-                <button type="button" id="protonOptimizeBtn" class="proton-btn proton-btn--action" title="Com o bypass ativo, o Discord fecha e só reabre depois que a nova rota for comprovada." aria-label="Otimizar rota. Com o bypass ativo, o Discord fecha e só reabre depois que a nova rota for comprovada.">
+                <button type="button" id="protonOptimizeBtn" class="proton-btn proton-btn--action" title="Se o bypass estiver ligado, a gente fecha o Discord, troca a rota e só reabre quando a saída nova estiver comprovada. Se você estiver numa call, saia e entre de novo depois." aria-label="Otimizar rota. Se o bypass estiver ligado, a gente fecha o Discord, troca a rota e só reabre quando a saída nova estiver comprovada.">
                   <svg class="icon-refresh" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="23 4 23 10 17 10"/>
                     <polyline points="1 20 1 14 7 14"/>
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                   </svg>
-                  <span id="protonOptimizeBtnText">Otimizar rota</span>
+                  <span id="protonOptimizeBtnText">Trocar de servidor</span>
                 </button>
               </div>
 
               <div id="protonServerBadge" class="proton-server-badge">
-                <span class="proton-server-caption">Rota ativa</span>
-                <span class="proton-server-name" id="protonServerName">Servidor otimizado</span>
-                <span class="proton-ping-pill" id="protonServerPing">— ms</span>
-                <span class="proton-load-pill" id="protonServerLoad">—% carga</span>
+                <span class="proton-server-caption">Rota de agora</span>
+                <span class="proton-server-name" id="protonServerName">Servidor no ponto</span>
+                <span class="proton-ping-pill" id="protonServerPing">... ms</span>
+                <span class="proton-load-pill" id="protonServerLoad">...% carga</span>
               </div>
             </div>
+            <label class="proton-stay">
+              <input type="checkbox" id="protonStayLoggedIn" checked />
+              <span>Manter conectado</span>
+            </label>
+            <p class="proton-hint proton-stay-hint">Guarda o login neste computador.</p>
             <div class="proton-feedback" id="protonFeedback" hidden></div>
           </div>
 
           <!-- Painel Arquivo Customizado .conf -->
           <div class="vpn-panel" id="panelCustom" role="tabpanel" aria-labelledby="tabCustom" hidden>
-            <div class="vpn-drop-zone" id="vpnDropZone" tabindex="0" role="button" aria-label="Soltar arquivo WireGuard .conf ou abrir seletor">
+            <div class="vpn-drop-zone" id="vpnDropZone" tabindex="0" role="button" aria-label="Soltar um arquivo WireGuard .conf ou escolher no computador">
               <span class="vpn-drop-zone__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 3v11" />
@@ -294,14 +283,14 @@
                 </svg>
               </span>
               <span class="vpn-drop-zone__copy">
-                <strong>Solte seu arquivo .conf aqui</strong>
-                <span>ou clique para procurar no computador</span>
+                <strong>Solte o .conf aqui</strong>
+                <span>ou clique pra escolher no computador</span>
               </span>
             </div>
             <div class="vpn-drop-feedback" id="vpnDropFeedback" role="status" aria-live="polite" hidden></div>
             <div class="vpn-config-row">
               <div class="vpn-config-info">
-                <span class="vpn-config-status" id="vpnConfigStatus">Nenhum arquivo importado</span>
+                <span class="vpn-config-status" id="vpnConfigStatus">Ainda sem arquivo</span>
               </div>
               <div class="vpn-config-actions">
                 <button type="button" class="vpn-import-btn" id="vpnImportBtn">
@@ -312,7 +301,7 @@
                   </svg>
                   Importar
                 </button>
-                <button type="button" class="vpn-test-btn" id="vpnTestBtn" title="Testar se a configuração é válida">
+                <button type="button" class="vpn-test-btn" id="vpnTestBtn" title="A gente confere se esse .conf faz sentido antes de ligar o túnel">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                     <polyline points="22 4 12 14.01 9 11.01"/>
@@ -322,6 +311,7 @@
               </div>
             </div>
             <div class="vpn-test-feedback" id="vpnTestFeedback" hidden></div>
+            <p class="proton-hint">Se o envio de foto no chat travar, use um arquivo .conf só seu.</p>
           </div>
             </div>
           </section>
@@ -335,28 +325,18 @@
           <span>Modo desenvolvedor</span>
         </label>
         <small id="devModeHint" class="dev-mode-hint" hidden
-          >Janela de logs aberta ao lado</small
+          >Abre a janela de logs do app</small
         >
 
         <footer class="footer">
           <p class="disclaimer">
-            O Discord só abre depois que o IP de saída WireGuard é comprovado. A troca de rota fecha, valida e reabre o Discord automaticamente.
+            O Discord só abre quando a conexão estiver certa. Se cair, o app tenta outra rota sozinho.
             <span id="closeHint"
-              >Fechar a janela esconde o app na bandeja, junto do rel&oacute;gio
-              &mdash; para reverter tudo, saia pelo &iacute;cone de
-              l&aacute;.</span
+              >Fechar a janela só esconde o app na bandeja.
+              Pra sair de verdade, use o &iacute;cone ao lado do rel&oacute;gio.</span
             >
           </p>
-          <p class="credits">
-            Projeto open source, feito por
-            <a
-              href="https://github.com/bezumiya/GoLiveBypass#agradecimentos"
-              target="_blank"
-              rel="noopener"
-              class="credits-link"
-              >muita gente</a
-            >.
-          </p>
+          <p class="credits">Feito em aberto, por muita gente boa.</p>
         </footer>
 
         <div id="settingsDialog" class="settings-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -364,8 +344,8 @@
           <div class="settings-dialog__panel" role="document">
             <div class="settings-dialog__header">
               <div>
-                <span class="settings-dialog__eyebrow">Preferências</span>
-                <h2 id="settingsTitle" class="settings-dialog__title">Configurações</h2>
+                <span class="settings-dialog__eyebrow">Do seu jeito</span>
+                <h2 id="settingsTitle" class="settings-dialog__title">Ajustes</h2>
               </div>
               <button id="settingsClose" class="settings-dialog__close" type="button" aria-label="Fechar configurações">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
@@ -400,7 +380,7 @@
               </div>
             </div>
 
-            <div class="settings-section settings-section--behavior">
+            <div class="settings-section settings-section--behavior" hidden>
               <span class="settings-group__label">Comportamento</span>
 
               <label class="settings-switch" id="autoUpdateRow">
@@ -412,7 +392,7 @@
                 </span>
                 <span class="settings-switch__copy">
                   <span id="autoUpdateLabel" class="settings-switch__title">Avisar sobre atualizações</span>
-                  <span class="settings-switch__hint">Receba novas versões</span>
+                  <span class="settings-switch__hint">Avisa quando sair versão nova</span>
                 </span>
                 <input type="checkbox" id="autoUpdateToggle" checked />
                 <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -422,7 +402,7 @@
                 <span class="settings-switch__icon settings-switch__icon--beta" aria-hidden="true">β</span>
                 <span class="settings-switch__copy">
                   <span id="updateChannelLabel" class="settings-switch__title">Canal beta</span>
-                  <span class="settings-switch__hint">Receba versões de teste</span>
+                  <span class="settings-switch__hint">Versões de teste, se você topa o risco</span>
                 </span>
                 <input type="checkbox" id="updateChannelToggle" />
                 <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -434,20 +414,20 @@
         <div id="bugDialog" class="bug-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="bugDialogTitle">
           <div class="bug-dialog__backdrop" id="bugBackdrop"></div>
           <div class="bug-dialog__panel" role="document">
-            <h2 id="bugDialogTitle" class="bug-dialog__title">Reportar bug</h2>
-            <p class="bug-dialog__hint">Descreva o problema. Logs da sessão são incluídos automaticamente — sua proxy é removida antes de enviar.</p>
+            <h2 id="bugDialogTitle" class="bug-dialog__title">Algo deu errado?</h2>
+            <p class="bug-dialog__hint">Nada sai daqui sozinho. Copia o diagnóstico e manda no Discord se quiser ajuda.</p>
             <div id="bugForm">
               <label class="bug-field">
                 <span>Resumo *</span>
-                <input id="bugTitle" type="text" maxlength="200" placeholder="Ex: Go Live ainda bloqueado com Tor ativo" />
+                <input id="bugTitle" type="text" maxlength="200" placeholder="Ex.: Go Live trava no carregando, Proton ligada" />
               </label>
               <label class="bug-field">
                 <span>Detalhes</span>
-                <textarea id="bugDesc" rows="4" maxlength="8192" placeholder="O que aconteceu? O que esperava? Passos para reproduzir..."></textarea>
+                <textarea id="bugDesc" rows="4" maxlength="8192" placeholder="O que você tentou, o que viu, o que esperava… quanto mais contexto, mais rápido a gente acha."></textarea>
               </label>
-              <label class="bug-check">
+              <label class="bug-check" hidden>
                 <input id="bugIncludeLogs" type="checkbox" checked />
-                <span>Incluir logs da sessão (recomendado)</span>
+                <span>Mandar os logs da sessão (ajuda bastante)</span>
               </label>
             </div>
             <div id="bugSkeleton" class="bug-skeleton" hidden aria-hidden="true">
@@ -462,14 +442,15 @@
                   <path d="M4.5 12.5 9.5 17.5 19.5 7" />
                 </svg>
               </div>
-              <h3>Obrigado por ajudar!</h3>
-              <p>Seu report foi enviado com sucesso e já ajuda a melhorar o GoLiveBypass para toda a comunidade.</p>
+              <h3>Valeu demais!</h3>
+              <p>Seu relato já foi. Isso ajuda o GoLiveBypass pra todo mundo que tá na mesma luta.</p>
               <p id="bugSuccessLink" class="bug-success__link"></p>
             </div>
             <p id="bugStatus" class="bug-status" role="status"></p>
             <div class="bug-dialog__actions">
-              <button id="bugCancel" type="button" class="bug-btn bug-btn--ghost">Cancelar</button>
-              <button id="bugSubmit" type="button" class="bug-btn bug-btn--primary">
+              <button id="bugCopyDiag" type="button" class="bug-btn bug-btn--ghost bug-btn--left">Copiar diagnóstico</button>
+              <button id="bugCancel" type="button" class="bug-btn bug-btn--ghost">Deixa pra lá</button>
+              <button id="bugSubmit" type="button" class="bug-btn bug-btn--primary" hidden>
                 <span class="bug-btn__text">Enviar</span>
                 <span class="bug-btn__spinner" aria-hidden="true"></span>
               </button>

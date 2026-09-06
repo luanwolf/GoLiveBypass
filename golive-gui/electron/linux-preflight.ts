@@ -66,12 +66,12 @@ export function parseLinuxPreflight(raw: string): LinuxPreflight {
 }
 
 export function linuxPreflightMessage(preflight: LinuxPreflight): string {
-  if (preflight.ok) return "Ambiente Linux pronto para ativar.";
+  if (preflight.ok) return "Linux pronto pra ligar o túnel.";
   if (preflight.dependencies.missing.length > 0) {
-    return `Dependências ausentes: ${preflight.dependencies.missing.join(", ")}.`;
+    return `Falta instalar: ${preflight.dependencies.missing.join(", ")}.`;
   }
-  if (!preflight.elevation.available) return "É necessária autorização sudo ou pkexec para criar o túnel.";
-  if (!preflight.netns.available) return "O sistema não permite consultar namespaces de rede (ip netns).";
-  if (!preflight.discord.found) return "Nenhuma instalação do Discord foi encontrada.";
-  return preflight.errors[0] || "O ambiente Linux não está pronto para ativar.";
+  if (!preflight.elevation.available) return "Precisa de sudo ou pkexec pra criar o túnel.";
+  if (!preflight.netns.available) return "Este sistema não deixa consultar namespaces de rede (ip netns).";
+  if (!preflight.discord.found) return "Não achei o Discord neste Linux.";
+  return preflight.errors[0] || "O Linux ainda não está pronto pra ligar o túnel.";
 }

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.log
+*.exe
 
 # api (Go)
 api/.env
@@ -8,3 +9,4 @@ api/api
 
 # config local do agente
 .commandcode/
+.cursor/

@@ -13,6 +13,9 @@ import (
 	"protonvpn-wg-confgen/internal/constants"
 )
 
+// ponytail: 30d is the sidecar's documented session-cache ceiling.
+const sessionCacheMax = 30 * 24 * time.Hour
+
 // SessionStore handles persistent session storage
 type SessionStore struct {
 	filePath string
@@ -53,16 +56,19 @@ func (s *SessionStore) Save(session *api.Session, username string, duration time
 		SavedAt:  time.Now(),
 	}
 
-	// Calculate expiration based on API response
+	// ExpiresIn=0 is common on the VPN API. That is the access-token TTL, not
+	// the refresh token; treating it as "expires now" made the file look dead
+	// before the UI could reopen the route screen.
 	apiExpiration := time.Now().Add(time.Duration(session.ExpiresIn) * time.Second)
+	if session.ExpiresIn <= 0 {
+		apiExpiration = time.Now().Add(sessionCacheMax)
+	}
 
 	if duration == 0 {
-		// Use the API's expiration
 		savedSession.ExpiresAt = apiExpiration
 	} else {
-		// Use the user-specified duration, but cap it at API expiration
 		userExpiration := time.Now().Add(duration)
-		if userExpiration.After(apiExpiration) {
+		if session.ExpiresIn > 0 && userExpiration.After(apiExpiration) {
 			savedSession.ExpiresAt = apiExpiration
 		} else {
 			savedSession.ExpiresAt = userExpiration
@@ -140,12 +146,14 @@ func (s *SessionStore) Load(username string) (*api.Session, time.Duration, error
 		return nil, 0, nil
 	}
 
-	// Check if session has expired
 	now := time.Now()
 	if now.After(savedSession.ExpiresAt) {
-		// Delete expired session
-		_ = s.Delete()
-		return nil, 0, nil
+		if savedSession.Session == nil || savedSession.Session.RefreshToken == "" {
+			_ = s.Delete()
+			return nil, 0, nil
+		}
+		// Access TTL elapsed; refresh token may still work. Keep the file.
+		return savedSession.Session, 0, nil
 	}
 
 	// Calculate time until expiration
@@ -203,15 +211,10 @@ func VerifySession(httpClient *http.Client, apiURL string, session *api.Session)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return false
+		// Unreachable API is not an expired session (429/timeout used to log the user out).
+		return true
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// If we get a 401, the session is invalid
-	if resp.StatusCode == http.StatusUnauthorized {
-		return false
-	}
-
-	// Any 2xx response means the session is valid
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	return resp.StatusCode != http.StatusUnauthorized
 }

@@ -5,19 +5,6 @@ import dns from "dns/promises";
 import https from "https";
 import * as logger from "./logger";
 
-const EMBEDDED_WG_CONF = `[Interface]
-PrivateKey = sLPBSsrhzoqZSOY/XxAzGAy5F+sQKQIIE3WoxG8buWM=
-Address = 10.2.0.2/32
-DNS = 10.2.0.1
-
-[Peer]
-# MX-FREE#16
-PublicKey = mkI+cC9ggzfMdZy1cl3Fl01gPJJxsLXjshXAN8EedQ8=
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 84.20.27.53:51820
-PersistentKeepalive = 25
-`;
-
 const WIRESOCK_PACKAGE_ID = "NTKERNEL.WireSockVPNClientCLI";
 const WIRESOCK_DOWNLOAD_PAGE = "https://v3.wiresock.net/wiresock-sdk";
 const WIRESOCK_SERVICE_NAMES = ["wiresock-client-service", "wiresock-pro-client-service"] as const;
@@ -182,12 +169,12 @@ const WIRESOCK_EXECUTABLE_NAMES = ["wiresock-client.exe"] as const;
  * package. This deliberately does not search the whole disk.
  */
 export function wireSockSearchRoots(env: NodeJS.ProcessEnv = process.env): string[] {
-  const programFiles = [
-    env.ProgramW6432,
-    env.ProgramFiles,
-    env["ProgramFiles(x86)"],
-    "C:\\Program Files",
-  ].filter((dir): dir is string => Boolean(dir));
+  const fromEnv = [env.ProgramW6432, env.ProgramFiles, env["ProgramFiles(x86)"]].filter((dir): dir is string => Boolean(dir));
+  const programFiles = fromEnv.length > 0
+    ? fromEnv
+    : (env.ProgramFiles === undefined && env.ProgramW6432 === undefined && env["ProgramFiles(x86)"] === undefined
+      ? ["C:\\Program Files"]
+      : []);
   const roots = new Set<string>();
   for (const dir of programFiles) {
     roots.add(path.join(dir, "WireSock Secure Connect"));
@@ -323,21 +310,9 @@ export function ensureWireGuardConf(installDir: string, customPath?: string): st
   if (fs.existsSync(confPath)) {
     return confPath;
   }
-  const userProfile = process.env.USERPROFILE || "";
-  const dl = path.join(userProfile, "Downloads");
-  if (fs.existsSync(dl)) {
-    try {
-      const files = fs.readdirSync(dl).filter((f) => f.startsWith("wg-") && f.endsWith(".conf"));
-      if (files.length > 0) {
-        fs.mkdirSync(installDir, { recursive: true });
-        fs.copyFileSync(path.join(dl, files[0]), confPath);
-        return confPath;
-      }
-    } catch {}
-  }
-  fs.mkdirSync(installDir, { recursive: true });
-  fs.writeFileSync(confPath, EMBEDDED_WG_CONF, "utf8");
-  return confPath;
+  // ponytail: sem fallback pro perfil compartilhado MX-FREE nem pro primeiro
+  // arquivo WireGuard achado na pasta de downloads — isso vazava chave alheia.
+  throw new Error("Nenhum perfil WireGuard encontrado. Entre na Proton ou importe um arquivo .conf.");
 }
 
 export function findWireSockExe(): string | null {
@@ -511,7 +486,7 @@ export async function startWireSockService(installDir: string, customConf?: stri
   if (!subiu) {
     logger.error("wiresock", "tunel nao confirmado depois de todas as tentativas", {});
     throw new Error(
-      "Não consegui confirmar que o WireSock subiu. Isso geralmente significa que falta permissão de administrador para instalar/iniciar o serviço — feche o Discord, execute o GoLiveBypass como administrador e ative de novo.",
+      "Não consegui confirmar que o WireSock subiu. Isso geralmente significa que falta permissão de administrador para instalar/iniciar o serviço. Feche o Discord, execute o GoLiveBypass como administrador e ative de novo.",
     );
   }
   logger.info("wiresock", "tunel confirmado (modo direto)", {});

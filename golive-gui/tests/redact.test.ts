@@ -62,6 +62,12 @@ describe("l1Padroes", () => {
     );
   });
 
+  it("mascara chave privada do WireGuard", () => {
+    expect(l1Padroes("PrivateKey = EJmruxrw1y1dxNMn/MwWNjqh6RdtbrrajBqlnlxjoFw=")).toBe(
+      "PrivateKey = <redacted>",
+    );
+  });
+
   it("mascara e-mail e caminhos com o nome local da pessoa", () => {
     expect(l1Padroes("contato maria.silva@example.com em /home/maria/projeto")).toBe(
       "contato <email> em /home/<usuario>/projeto",

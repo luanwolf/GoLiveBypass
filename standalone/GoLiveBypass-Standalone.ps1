@@ -111,20 +111,6 @@ $TorArchiveName = 'tor-expert-bundle-windows-x86_64-13.5.tar.gz'
 $TorUrl = "https://archive.torproject.org/tor-package-archive/torbrowser/$TorBundle/$TorArchiveName"
 $TorSha256 = '5978ccc2a7fed783c329474888e87f5e6349aa132d9c43016418bff296c7becb'
 
-$EmbeddedWgConf = @'
-[Interface]
-PrivateKey = sLPBSsrhzoqZSOY/XxAzGAy5F+sQKQIIE3WoxG8buWM=
-Address = 10.2.0.2/32
-DNS = 10.2.0.1
-
-[Peer]
-# MX-FREE#16
-PublicKey = mkI+cC9ggzfMdZy1cl3Fl01gPJJxsLXjshXAN8EedQ8=
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 84.20.27.53:51820
-PersistentKeepalive = 25
-'@
-
 function Ensure-WireGuardConf {
     $wgFile = Join-Path $InstallDir 'wireguard.conf'
     if ($WgConf -and (Test-Path -LiteralPath $WgConf)) {
@@ -136,18 +122,7 @@ function Ensure-WireGuardConf {
     if (Test-Path -LiteralPath $wgFile) {
         return $wgFile
     }
-    
-    $dl = Join-Path $env:USERPROFILE 'Downloads'
-    $foundDl = Get-ChildItem -Path $dl -Filter 'wg-*.conf' -ErrorAction SilentlyContinue | Select-Object -First 1
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    if ($foundDl) {
-        Copy-Item -LiteralPath $foundDl.FullName -Destination $wgFile -Force
-        Write-Ok "Configuracao WireGuard encontrada em $($foundDl.FullName)"
-    } else {
-        [IO.File]::WriteAllText($wgFile, $EmbeddedWgConf, (New-Object Text.UTF8Encoding $false))
-        Write-Ok "Configuracao padrao WireGuard (Mexico) gravada em $wgFile"
-    }
-    return $wgFile
+    throw "Nenhum perfil WireGuard encontrado. Entre na Proton ou importe um arquivo .conf."
 }
 
 function Ensure-WireSock {

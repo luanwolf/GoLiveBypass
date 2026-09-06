@@ -1666,18 +1666,6 @@ remove_injection() {
 }
 
 
-EMBEDDED_WG_CONF='[Interface]
-PrivateKey = UDisDb8fm+SeuHuJgKtWFcGMNHz30eBPHZWND/Jou2M=
-Address = 10.2.0.2/32, 2a07:b944::2:2/128
-DNS = 10.2.0.1, 2a07:b944::2:1
-
-[Peer]
-# US-FREE#1
-PublicKey = gucaLaM/mgJQbHVvnZNtW+1L4Mi7E2mtTMrhS0K4miU=
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 146.70.230.146:51820
-PersistentKeepalive = 25'
-
 ensure_wireguard_conf() {
     local wg_file="$INSTALL_DIR/wireguard.conf"
     if [ -n "$WG_CONF_CLI" ] && [ -f "$WG_CONF_CLI" ]; then
@@ -1690,25 +1678,7 @@ ensure_wireguard_conf() {
     if [ -f "$wg_file" ]; then
         return 0
     fi
-
-    local found_dl=""
-    for f in "$_USER_HOME/Downloads"/wg-*.conf; do
-        if [ -f "$f" ]; then
-            found_dl="$f"
-            break
-        fi
-    done
-
-    mkdir -p "$INSTALL_DIR"
-    if [ -n "$found_dl" ]; then
-        cp "$found_dl" "$wg_file"
-        chmod 600 "$wg_file" 2>/dev/null || true
-        ok "Configuracao WireGuard encontrada em $found_dl"
-    else
-        printf '%s\n' "$EMBEDDED_WG_CONF" > "$wg_file"
-        chmod 600 "$wg_file" 2>/dev/null || true
-        ok "Configuracao padrao WireGuard (EUA) gravada em $wg_file"
-    fi
+    fail "Nenhum perfil WireGuard encontrado. Entre na Proton ou importe um arquivo .conf."
 }
 
 setup_wireguard_netns() {

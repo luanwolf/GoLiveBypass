@@ -104,6 +104,7 @@ declare global {
         country: string;
         freeOnly: boolean;
         autoPing: boolean;
+        stayLoggedIn: boolean;
         lastServer?: any;
       }>;
       setProtonSettings: (settings: any) => Promise<boolean>;
@@ -121,14 +122,14 @@ function applyPlatformCopy() {
   const startupLabel = document.getElementById('startupLabel');
   if (startupLabel) {
     // Linux: autostart XDG; Windows/Mac: login item. O rotulo acompanha o SO.
-    startupLabel.textContent = isMac ? 'Iniciar com o Mac' : isLinux ? 'Iniciar com o sistema' : 'Iniciar com o Windows';
+    startupLabel.textContent = isMac ? 'Abrir junto com o Mac' : isLinux ? 'Abrir junto com o sistema' : 'Abrir junto com o Windows';
   }
 
   const closeHint = document.getElementById('closeHint');
   if (closeHint) {
     closeHint.textContent = isMac
-      ? 'Fechar a janela esconde o app na barra de menus, junto do relógio — para reverter tudo, saia pelo ícone de lá.'
-      : 'Fechar a janela esconde o app na bandeja, junto do relógio — para reverter tudo, saia pelo ícone de lá.';
+      ? 'Fechar a janela só esconde o app na barra de menus. Pra sair de verdade, use o ícone ao lado do relógio.'
+      : 'Fechar a janela só esconde o app na bandeja. Pra sair de verdade, use o ícone ao lado do relógio.';
   }
 }
 
@@ -251,75 +252,75 @@ async function updateStatus() {
     toggleBtn.classList.remove('loading', 'deactivate', 'overwrite');
 
     if (status === 'ACTIVE') {
-      statusText.innerText = 'GoLiveBypass está Ativo';
-      statusTag.textContent = 'Ativo';
+      statusText.innerText = 'Túnel ligado. Pode ir de Go Live.';
+      statusTag.textContent = 'No ar';
       statusTag.classList.add('tag--ok');
-      btnText.innerText = 'Desativar Bypass';
+      btnText.innerText = 'Desligar o bypass';
       toggleBtn.classList.add('deactivate');
       toggleBtn.disabled = false;
       statusCard.hidden = true;
       if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
     } else if (status === 'CONNECTING') {
-      statusText.innerText = 'Comprovando a saída protegida…';
-      statusTag.textContent = 'Validando';
+      statusText.innerText = 'Conferindo se a saída tá protegida…';
+      statusTag.textContent = 'Quase lá';
       statusTag.classList.add('tag--warn');
       toggleBtn.disabled = true;
-      btnText.innerText = 'Validando rota…';
+      btnText.innerText = 'Conferindo a rota…';
       statusCard.hidden = false;
     } else if (status === 'RECOVERY_REQUIRED') {
-      statusText.innerText = 'A rota não pôde ser restaurada automaticamente';
-      statusTag.textContent = 'Recuperação necessária';
+      statusText.innerText = 'A rota não voltou sozinha. A internet pode estar estranha.';
+      statusTag.textContent = 'Precisa de uma mão';
       statusTag.classList.add('tag--danger');
       toggleBtn.disabled = true;
       btnText.innerText = 'Use Restaurar internet';
       statusCard.hidden = false;
     } else if (status === 'NOT_FOUND') {
-      statusText.innerText = 'Discord não encontrado';
-      statusTag.textContent = 'Ausente';
+      statusText.innerText = 'Não achei o Discord neste PC';
+      statusTag.textContent = 'Cadê o Discord?';
       statusTag.classList.add('tag--danger');
       toggleBtn.disabled = true;
-      btnText.innerText = 'Não Disponível';
+      btnText.innerText = 'Instala o Discord primeiro';
       statusCard.hidden = false;
       if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
     } else if (status === 'UNSUPPORTED') {
-      statusText.innerText = isMac ? 'Bypass por WireGuard indisponível no macOS' : 'Plataforma não suportada';
-      statusTag.textContent = 'Indisponível';
+      statusText.innerText = isMac ? 'No Mac ainda não dá pra envelopar o Discord no WireGuard' : 'Este sistema ainda não é suportado';
+      statusTag.textContent = 'Ainda não';
       statusTag.classList.add('tag--danger');
       toggleBtn.disabled = true;
-      btnText.innerText = 'Não Disponível';
+      btnText.innerText = 'Indisponível aqui';
       statusCard.hidden = false;
       if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
     } else if (isLinux && linuxPreflight && !linuxPreflight.ok) {
       const missing = linuxPreflight.dependencies.missing;
       statusText.innerText = missing.length > 0
-        ? `Dependências do Linux ausentes: ${missing.join(', ')}`
-        : (linuxPreflight.errors[0] || 'Ambiente Linux não está pronto');
-      statusTag.textContent = 'Corrija antes de ativar';
+        ? `Falta instalar no Linux: ${missing.join(', ')}`
+        : (linuxPreflight.errors[0] || 'O Linux ainda não está pronto pra ligar o túnel');
+      statusTag.textContent = 'Arruma isso antes';
       statusTag.classList.add('tag--danger');
       toggleBtn.disabled = true;
-      btnText.innerText = 'Não Disponível';
+      btnText.innerText = 'Ainda não dá';
       statusCard.hidden = false;
       if (linuxPreflightCommand) {
         linuxPreflightCommand.textContent = linuxPreflight.installCommand
-          ? `Comando: ${linuxPreflight.installCommand}`
-          : 'Verifique sudo/pkexec, iproute2 e o suporte a namespaces.';
+          ? `Cola isto no terminal: ${linuxPreflight.installCommand}`
+          : 'Confere sudo/pkexec, iproute2 e se o sistema deixa criar namespace de rede.';
         linuxPreflightCommand.hidden = false;
       }
     } else {
       if (!hasSelectedConf) {
         toggleBtn.disabled = true;
-        btnText.innerText = 'Selecione uma Configuração';
+        btnText.innerText = 'Falta uma rota';
         statusText.innerText = currentVpnMode === 'proton'
-          ? 'Conecte sua conta ProtonVPN abaixo para ativar'
-          : 'Importe uma configuração WireGuard (.conf) abaixo para ativar';
-        statusTag.textContent = 'Configuração necessária';
+          ? 'Entra na Proton aqui do lado pra gente poder ligar'
+          : 'Importa um .conf do WireGuard aqui do lado pra gente poder ligar';
+        statusTag.textContent = 'Quase pronto';
         statusTag.classList.add('tag--warn');
         statusCard.hidden = false;
         if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
       } else {
         toggleBtn.disabled = false;
-        btnText.innerText = 'Ativar Bypass';
-        statusText.innerText = 'Discord pronto para execução';
+        btnText.innerText = 'Ligar o bypass';
+        statusText.innerText = 'Discord no ponto. Pode ligar.';
         statusTag.textContent = 'Pronto';
         statusTag.classList.add('tag--ok');
         statusCard.hidden = true;
@@ -328,7 +329,7 @@ async function updateStatus() {
     }
   } catch (err) {
     console.error(err);
-    statusText.innerText = 'Erro ao buscar status';
+    statusText.innerText = 'Não consegui ler o status agora';
     statusTag.textContent = 'Erro';
     statusTag.classList.add('tag--danger');
     statusCard.hidden = false;
@@ -355,8 +356,8 @@ toggleBtn.addEventListener('click', async () => {
     } else {
       if (!hasSelectedConf) {
         const msg = currentVpnMode === 'proton'
-          ? 'Por favor, conecte sua conta ProtonVPN antes de ativar.'
-          : 'Por favor, importe uma configuração WireGuard (.conf) antes de ativar.';
+          ? 'Entra na Proton primeiro. Sem conta, não tem pra onde mandar o Discord.'
+          : 'Importa um .conf do WireGuard primeiro. Sem arquivo, o túnel não tem rota.';
         alert(msg);
         toggleBtn.disabled = true;
         return;
@@ -368,7 +369,7 @@ toggleBtn.addEventListener('click', async () => {
       }
     }
   } catch (err) {
-    alert('Erro: ' + err);
+    alert('Deu ruim: ' + err);
   }
 
   await updateStatus();
@@ -377,17 +378,17 @@ toggleBtn.addEventListener('click', async () => {
 restoreInternetBtn?.addEventListener('click', async () => {
   restoreInternetBtn.disabled = true;
   const original = restoreInternetBtn.textContent;
-  restoreInternetBtn.textContent = 'Restaurando internet…';
+  restoreInternetBtn.textContent = 'Restaurando a internet…';
   try {
     const result = await window.api.restoreInternet();
     if (!result.ok) {
-      const detalhe = result.residual?.join(', ') || result.error || 'verifique o DNS e tente novamente';
+      const detalhe = result.residual?.join(', ') || result.error || 'confere o DNS e tenta de novo';
       throw new Error(detalhe);
     }
-    alert('Internet restaurada. Se o Discord estava aberto, saia e entre novamente na call.');
+    alert('Internet no lugar de novo. Se o Discord estava aberto, sai e entra na call outra vez.');
     await updateStatus();
   } catch (err) {
-    alert('Não foi possível restaurar a internet: ' + (err instanceof Error ? err.message : String(err)));
+    alert('Não deu pra restaurar a internet: ' + (err instanceof Error ? err.message : String(err)));
   } finally {
     restoreInternetBtn.textContent = original || 'Restaurar internet';
     restoreInternetBtn.disabled = false;
@@ -478,6 +479,7 @@ const protonServerName = document.getElementById('protonServerName') as HTMLElem
 const protonServerPing = document.getElementById('protonServerPing') as HTMLElement | null;
 const protonServerLoad = document.getElementById('protonServerLoad') as HTMLElement | null;
 const protonFeedback = document.getElementById('protonFeedback') as HTMLElement | null;
+const protonStayLoggedIn = document.getElementById('protonStayLoggedIn') as HTMLInputElement | null;
 
 let currentVpnMode: 'proton' | 'custom' = 'proton';
 let isProtonAuthenticated = false;
@@ -550,17 +552,17 @@ function protonNeeds2FA(error?: string): boolean {
 function protonLoginMessage(res: { code?: string; message?: string; error?: string }): string {
   if (res.message) return res.message;
   switch (res.code) {
-    case 'INVALID_CREDENTIALS': return 'Usuário ou senha incorretos. Confira os dados e tente novamente.';
-    case 'TWO_FACTOR_REQUIRED': return 'Esta conta exige autenticação em duas etapas. Digite o código do aplicativo autenticador.';
-    case 'TWO_FACTOR_INVALID': return 'O código 2FA está incorreto ou expirou. Gere um novo código e tente novamente.';
-    case 'CAPTCHA_REQUIRED': return 'O Proton solicitou uma verificação de segurança, mas não forneceu um desafio válido.';
-    case 'CAPTCHA_INVALID': return 'A verificação de segurança expirou ou foi recusada. Tente fazer login novamente.';
-    case 'CAPTCHA_CANCELLED': return 'Verificação cancelada. Tente fazer login novamente quando estiver pronto.';
-    case 'NETWORK_ERROR': return 'Não foi possível conectar aos servidores ProtonVPN. Verifique sua internet e tente novamente.';
-    case 'TIMEOUT': return 'O ProtonVPN demorou demais para responder. Tente novamente em alguns instantes.';
-    case 'MISSING_EXECUTABLE': return 'O componente de conexão ProtonVPN não foi encontrado. Reinstale o GoLiveBypass ou atualize para a versão mais recente.';
-    case 'SESSION_PERSISTENCE': return 'Login concluído, mas a sessão não pôde ser salva neste computador. Verifique as permissões da pasta de dados.';
-    default: return 'Não foi possível concluir o login ProtonVPN. Tente novamente ou envie um relatório de diagnóstico.';
+    case 'INVALID_CREDENTIALS': return 'Usuário ou senha não bateram. Dá uma conferida e tenta de novo.';
+    case 'TWO_FACTOR_REQUIRED': return 'Essa conta pede o código do autenticador. Cola ele aqui.';
+    case 'TWO_FACTOR_INVALID': return 'Esse código 2FA não rolou. Às vezes já expirou. Pega o novo e tenta.';
+    case 'CAPTCHA_REQUIRED': return 'A Proton pediu uma verificação, mas o desafio não veio direito.';
+    case 'CAPTCHA_INVALID': return 'A verificação expirou ou foi recusada. Entra de novo que a gente tenta outra vez.';
+    case 'CAPTCHA_CANCELLED': return 'Beleza, cancelou. Quando quiser, entra de novo.';
+    case 'NETWORK_ERROR': return 'Não alcancei os servidores da Proton. Confere a internet e tenta de novo.';
+    case 'TIMEOUT': return 'A Proton demorou demais pra responder. Espera um pouco e tenta outra vez.';
+    case 'MISSING_EXECUTABLE': return 'Falta o pedaço que fala com a Proton neste app. Reinstala ou atualiza o GoLiveBypass.';
+    case 'SESSION_PERSISTENCE': return 'O login deu certo, mas não consegui guardar a sessão neste PC. Confere a pasta de dados.';
+    default: return 'Não deu pra entrar na Proton agora. Tenta de novo, ou manda um relato pra gente.';
   }
 }
 
@@ -595,15 +597,16 @@ async function refreshProtonState() {
     if (protonCountrySelect) {
       protonCountrySelect.value = s.country || '';
     }
+    if (protonStayLoggedIn) protonStayLoggedIn.checked = s.stayLoggedIn !== false;
+    if (s.username && protonUsername) protonUsername.value = s.username;
 
     if (s.username) {
-      if (protonUsername) protonUsername.value = s.username;
       const chk = await window.api.checkProtonSession(s.username);
       if (chk.valid) {
         isProtonAuthenticated = true;
         if (protonAuthForm) protonAuthForm.hidden = true;
         if (protonConnectedView) protonConnectedView.hidden = false;
-        if (protonUserDisplay) protonUserDisplay.textContent = `Conta: ${s.username}`;
+        if (protonUserDisplay) protonUserDisplay.textContent = s.username;
         if (protonDot) protonDot.style.background = '#22c55e';
 
         if (s.lastServer?.server && protonServerBadge && protonServerName && protonServerPing && protonServerLoad) {
@@ -642,19 +645,19 @@ async function submitProtonLogin() {
     const twoFa = proton2FA?.value.trim() || undefined;
 
     if (!user) {
-      setProtonFeedback('Informe o usuário Proton.', 'err');
+      setProtonFeedback('Coloca o usuário da Proton.', 'err');
       return;
     }
     if (!pass) {
-      setProtonFeedback('Informe sua senha Proton.', 'err');
+      setProtonFeedback('Falta a senha.', 'err');
       return;
     }
 
     protonLoginInFlight = true;
     if (protonLoginBtn) protonLoginBtn.disabled = true;
     if (protonLoginSpinner) protonLoginSpinner.hidden = false;
-    if (protonLoginBtnText) protonLoginBtnText.textContent = 'Conectando...';
-    setProtonFeedback('Autenticando com ProtonVPN...', 'busy');
+    if (protonLoginBtnText) protonLoginBtnText.textContent = 'Entrando…';
+    setProtonFeedback('Falando com a Proton…', 'busy');
 
     try {
       const res = await window.api.loginProton({
@@ -664,7 +667,7 @@ async function submitProtonLogin() {
       });
 
       if (res.success) {
-        setProtonFeedback('Conectado com sucesso! Servidor rápido selecionado.', 'ok');
+        setProtonFeedback('Entrou! Já escolhemos um servidor rápido.', 'ok');
         if (protonPassword) protonPassword.value = '';
         if (proton2FA) proton2FA.value = '';
         closeProton2FADialog(false);
@@ -674,7 +677,7 @@ async function submitProtonLogin() {
       } else {
         if (res.code === 'TWO_FACTOR_REQUIRED' || res.code === 'TWO_FACTOR_INVALID' || protonNeeds2FA(res.error)) {
           setProtonFeedback(
-            twoFa ? 'Código 2FA inválido ou expirado. Tente novamente.' : 'Esta conta exige um código 2FA.',
+            twoFa ? 'Código 2FA não bateu, ou já venceu. Pega o novo.' : 'Essa conta pede um código 2FA.',
             'err'
           );
           openProton2FADialog();
@@ -688,21 +691,24 @@ async function submitProtonLogin() {
       protonLoginInFlight = false;
       if (protonLoginBtn) protonLoginBtn.disabled = false;
       if (protonLoginSpinner) protonLoginSpinner.hidden = true;
-      if (protonLoginBtnText) protonLoginBtnText.textContent = 'Conectar conta Proton';
+      if (protonLoginBtnText) protonLoginBtnText.textContent = 'Entrar na Proton';
     }
 }
 
 protonLoginBtn?.addEventListener('click', () => void submitProtonLogin());
+protonStayLoggedIn?.addEventListener('change', () => {
+  void window.api.setProtonSettings({ stayLoggedIn: protonStayLoggedIn.checked });
+});
 window.api.onProtonCaptchaStatus((status) => {
   if (!protonLoginInFlight) return;
-  if (status === 'opening') setProtonFeedback('Resolva a verificação oficial da Proton na janela que abriu.', 'busy');
-  else if (status === 'retrying') setProtonFeedback('O desafio expirou. Resolva o novo CAPTCHA para continuar.', 'busy');
-  else if (status === 'verifying') setProtonFeedback('CAPTCHA concluído. Confirmando o login com a Proton...', 'busy');
+  if (status === 'opening') setProtonFeedback('Resolve a verificação da Proton na janela que abriu.', 'busy');
+  else if (status === 'retrying') setProtonFeedback('O desafio expirou. Resolve o CAPTCHA novo pra continuar.', 'busy');
+  else if (status === 'verifying') setProtonFeedback('CAPTCHA ok. Confirmando o login com a Proton…', 'busy');
 });
 proton2FAConfirmBtn?.addEventListener('click', () => {
   const code = proton2FA?.value.trim() || '';
   if (!code) {
-    setProtonFeedback('Digite o código 2FA para continuar.', 'err');
+    setProtonFeedback('Cola o código 2FA pra continuar.', 'err');
     proton2FA?.focus();
     return;
   }
@@ -733,9 +739,9 @@ async function optimizeProtonRoute(onStartup = false) {
 
   protonOptimizationInFlight = true;
   if (protonOptimizeBtn) protonOptimizeBtn.disabled = true;
-  if (protonOptimizeBtnText) protonOptimizeBtnText.textContent = onStartup ? 'Otimizando...' : 'Medindo ping...';
+  if (protonOptimizeBtnText) protonOptimizeBtnText.textContent = onStartup ? 'Preparando…' : 'Medindo ping…';
   setProtonFeedback(
-    onStartup ? 'Atualizando automaticamente a rota Proton...' : 'Testando servidores em tempo real para menor latência...',
+    onStartup ? 'Escolhendo uma rota boa na Proton…' : 'Testando servidores agora, atrás do ping mais baixo…',
     'busy',
   );
 
@@ -753,19 +759,19 @@ async function optimizeProtonRoute(onStartup = false) {
       const rotaEmUso = currentState === 'ACTIVE';
       setProtonFeedback(
         rotaEmUso
-          ? `Rota ${res.server} aplicada e comprovada!${pingStr}${res.readiness?.verified === false ? ' Não foi possível confirmar a telemetria auxiliar do WireSock.' : ''}`
-          : `Rota ${res.server} selecionada!${pingStr} Ative o Bypass para usá-la.`,
+          ? `Rota ${res.server} no ar${pingStr}. Se você estiver numa call, saia e entre de novo pra o vídeo acompanhar.${res.readiness?.verified === false ? ' Não deu pra confirmar o detalhe extra da conexão, mas a rota já vale.' : ''}`
+          : `Rota ${res.server} escolhida${pingStr}. Agora é só ligar o bypass.`,
         'ok',
       );
     } else {
-      setProtonFeedback(res.error || 'Falha ao buscar servidor.', 'err');
+      setProtonFeedback(res.error || 'Não achei um servidor agora. Tenta de novo.', 'err');
     }
   } catch (err) {
     setProtonFeedback((err as Error)?.message || String(err), 'err');
   } finally {
     protonOptimizationInFlight = false;
     if (protonOptimizeBtn) protonOptimizeBtn.disabled = false;
-    if (protonOptimizeBtnText) protonOptimizeBtnText.textContent = 'Otimizar rota';
+    if (protonOptimizeBtnText) protonOptimizeBtnText.textContent = 'Trocar de servidor';
   }
 }
 
@@ -779,14 +785,14 @@ async function atualizarStatusWgConf() {
       const nome = await window.api.getWgConfName();
       if (nome && nome.trim() && !nome.startsWith('ProtonVPN')) {
         hasSelectedConf = true;
-        if (vpnConfigStatus) vpnConfigStatus.textContent = `Arquivo: ${nome}`;
+        if (vpnConfigStatus) vpnConfigStatus.textContent = nome;
       } else {
         hasSelectedConf = false;
-        if (vpnConfigStatus) vpnConfigStatus.textContent = 'Nenhum arquivo (.conf) importado';
+        if (vpnConfigStatus) vpnConfigStatus.textContent = 'Ainda sem arquivo';
       }
     } catch {
       hasSelectedConf = false;
-      if (vpnConfigStatus) vpnConfigStatus.textContent = 'Nenhum arquivo (.conf) importado';
+      if (vpnConfigStatus) vpnConfigStatus.textContent = 'Ainda sem arquivo';
     }
   }
 }
@@ -804,9 +810,8 @@ async function initVpnSection() {
     }
     await refreshProtonState();
     await atualizarStatusWgConf();
-    if (currentVpnMode === 'proton' && isProtonAuthenticated) {
-      void optimizeProtonRoute(true);
-    }
+    // ponytail: o login já grava o .conf; pingar de novo na abertura só atrasa a tela.
+    // Trocar de servidor / o vigia da rota escolhem de novo quando a conexão cair.
   } catch (err) {
     console.error('Erro ao inicializar seção VPN:', err);
   }
@@ -819,7 +824,7 @@ if (vpnImportBtn) {
       if (res && res.success) {
         await atualizarStatusWgConf();
         await updateStatus();
-        setVpnDropFeedback(`Arquivo ${res.fileName ?? 'WireGuard'} importado.`, 'ok');
+        setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
       } else if (res?.error) {
         setVpnDropFeedback(res.error, 'bad');
       }
@@ -844,23 +849,23 @@ function setVpnDropFeedback(message: string, type: 'ok' | 'bad') {
 async function importDroppedWgFile(file: File) {
   const filePath = (file as File & { path?: string }).path;
   if (!filePath) {
-    setVpnDropFeedback('Não foi possível ler este arquivo. Use o botão Importar.', 'bad');
+    setVpnDropFeedback('Não consegui ler esse arquivo. Usa o botão Importar.', 'bad');
     return;
   }
   if (!file.name.toLowerCase().endsWith('.conf')) {
-    setVpnDropFeedback('Solte um arquivo WireGuard com extensão .conf.', 'bad');
+    setVpnDropFeedback('Isso precisa ser um arquivo WireGuard terminando em .conf.', 'bad');
     return;
   }
 
-  setVpnDropFeedback('Validando configuração WireGuard...', 'ok');
+  setVpnDropFeedback('Olhando se esse .conf faz sentido…', 'ok');
   try {
     const res = await window.api.importWgConfFile(filePath);
     if (res?.success) {
-      setVpnDropFeedback(`Arquivo ${res.fileName ?? 'WireGuard'} importado.`, 'ok');
+      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
       await atualizarStatusWgConf();
       await updateStatus();
     } else {
-      setVpnDropFeedback(res?.error ?? 'Não foi possível importar este arquivo.', 'bad');
+      setVpnDropFeedback(res?.error ?? 'Esse arquivo não entrou. Tenta outro .conf.', 'bad');
     }
   } catch (err) {
     setVpnDropFeedback(err instanceof Error ? err.message : String(err), 'bad');
@@ -912,7 +917,7 @@ if (vpnTestBtn && vpnTestFeedback) {
     vpnTestFeedback.classList.remove('vpn-test-feedback--ok', 'vpn-test-feedback--bad');
     vpnTestFeedback.classList.add('vpn-test-feedback--busy');
     vpnTestFeedback.hidden = false;
-    vpnTestFeedback.textContent = 'Testando configuração...';
+    vpnTestFeedback.textContent = 'Testando o .conf…';
     fitWindowToContent();
 
     try {
@@ -926,12 +931,12 @@ if (vpnTestBtn && vpnTestFeedback) {
           const geo = r.exitInfo.country ? ` [${r.exitInfo.country}]` : '';
           partes.push(`saída ativa ${r.exitInfo.ip}${geo}`);
         } else if (!r.active) {
-          partes.push('bypass inativo — não foi possível confirmar a saída real');
+          partes.push('bypass desligado, então não deu pra confirmar a saída de verdade');
         }
-        vpnTestFeedback.textContent = `OK — ${partes.join(' · ')}`;
+        vpnTestFeedback.textContent = `Beleza: ${partes.join(' · ')}`;
       } else {
         vpnTestFeedback.classList.add('vpn-test-feedback--bad');
-        vpnTestFeedback.textContent = r.error ?? 'Falha no teste';
+        vpnTestFeedback.textContent = r.error ?? 'O teste não passou';
       }
     } catch (err) {
       vpnTestFeedback.classList.remove('vpn-test-feedback--busy');
@@ -954,7 +959,7 @@ startupToggle.addEventListener('change', async () => {
   const result = await window.api.setStartup(wanted);
   if (!result.success) {
     startupToggle.checked = !wanted;
-    alert(result.error ?? 'Não foi possível alterar a inicialização automática.');
+    alert(result.error ?? 'Não deu pra mudar a inicialização automática.');
   }
 });
 
@@ -1045,6 +1050,7 @@ const bugDesc = document.getElementById('bugDesc') as HTMLTextAreaElement | null
 const bugIncludeLogs = document.getElementById('bugIncludeLogs') as HTMLInputElement | null;
 const bugStatus = document.getElementById('bugStatus') as HTMLElement | null;
 const bugCancel = document.getElementById('bugCancel') as HTMLButtonElement | null;
+const bugCopyDiag = document.getElementById('bugCopyDiag') as HTMLButtonElement | null;
 const bugSubmit = document.getElementById('bugSubmit') as HTMLButtonElement | null;
 const bugForm = document.getElementById('bugForm') as HTMLElement | null;
 const bugSkeleton = document.getElementById('bugSkeleton') as HTMLElement | null;
@@ -1062,12 +1068,13 @@ function setBugLoading(loading: boolean) {
   if (!bugSubmit || !bugCancel || !bugTitle || !bugDesc || !bugIncludeLogs) return;
   bugSubmit.disabled = loading;
   bugCancel.disabled = loading;
+  if (bugCopyDiag) bugCopyDiag.disabled = loading;
   bugTitle.disabled = loading;
   bugDesc.disabled = loading;
   bugIncludeLogs.disabled = loading;
   bugSubmit.classList.toggle('bug-btn--loading', loading);
   const txt = bugSubmit.querySelector('.bug-btn__text') as HTMLElement | null;
-  if (txt) txt.textContent = loading ? 'Enviando...' : 'Enviar';
+  if (txt) txt.textContent = loading ? 'Enviando…' : 'Enviar';
   if (bugForm) bugForm.hidden = loading;
   if (bugSkeleton) bugSkeleton.hidden = !loading;
   const hint = document.querySelector('.bug-dialog__hint') as HTMLElement | null;
@@ -1083,15 +1090,16 @@ function openBugDialog() {
   if (bugSkeleton) bugSkeleton.hidden = true;
   if (bugSuccess) bugSuccess.hidden = true;
   if (bugSuccessLink) bugSuccessLink.innerHTML = '';
-  if (bugDialogTitle) bugDialogTitle.textContent = 'Reportar bug';
+  if (bugDialogTitle) bugDialogTitle.textContent = 'Algo deu errado?';
   const hint = document.querySelector('.bug-dialog__hint') as HTMLElement | null;
   if (hint) hint.hidden = false;
-  if (bugCancel) bugCancel.textContent = 'Cancelar';
+  if (bugCancel) bugCancel.textContent = 'Fechar';
   if (bugSubmit) {
-    bugSubmit.hidden = false;
+    bugSubmit.hidden = true;
     const txt = bugSubmit.querySelector<HTMLElement>('.bug-btn__text');
     if (txt) txt.textContent = 'Enviar';
   }
+  if (bugCopyDiag) bugCopyDiag.hidden = false;
   setBugStatus('', null);
   setBugLoading(false);
   bugDialog.hidden = false;
@@ -1110,6 +1118,22 @@ function closeBugDialog() {
 bugBtn?.addEventListener('click', openBugDialog);
 bugBackdrop?.addEventListener('click', closeBugDialog);
 bugCancel?.addEventListener('click', closeBugDialog);
+bugCopyDiag?.addEventListener('click', async () => {
+  if (!bugCopyDiag) return;
+  bugCopyDiag.disabled = true;
+  try {
+    const { text } = await window.api.getDiagnostic({
+      status: currentState,
+      note: [bugTitle?.value, bugDesc?.value].filter(Boolean).join('\n\n'),
+    });
+    await navigator.clipboard.writeText(text);
+    setBugStatus('Diagnóstico copiado. Pode colar no Discord ou num e-mail.', true);
+  } catch (err) {
+    setBugStatus(err instanceof Error ? err.message : String(err), false);
+  } finally {
+    bugCopyDiag.disabled = false;
+  }
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && bugDialog && !bugDialog.hidden) closeBugDialog();
   if (e.key === 'Escape' && settingsDialog && !settingsDialog.hidden) closeSettingsDialog();
@@ -1118,7 +1142,7 @@ document.addEventListener('keydown', (e) => {
 bugSubmit?.addEventListener('click', async () => {
   const title = (bugTitle?.value ?? '').trim();
   if (!title) {
-    setBugStatus('Informe um resumo do problema.', false);
+    setBugStatus('Escreve um resumo, mesmo curto.', false);
     bugTitle?.focus();
     return;
   }
@@ -1142,7 +1166,7 @@ bugSubmit?.addEventListener('click', async () => {
       bugDialog?.classList.add('bug-dialog--success');
       const hint = document.querySelector('.bug-dialog__hint') as HTMLElement | null;
       if (hint) hint.hidden = true;
-      if (bugDialogTitle) bugDialogTitle.textContent = 'Obrigado!';
+      if (bugDialogTitle) bugDialogTitle.textContent = 'Valeu!';
       if (bugSuccessLink) {
         if (r.issueUrl) {
           const n = r.issueNumber ? ` #${r.issueNumber}` : '';
@@ -1154,6 +1178,7 @@ bugSubmit?.addEventListener('click', async () => {
       setBugStatus('', null);
       if (bugCancel) bugCancel.textContent = 'Fechar';
       if (bugSubmit) bugSubmit.hidden = true;
+      if (bugCopyDiag) bugCopyDiag.hidden = true;
       if (bugCancel) bugCancel.hidden = false;
       fitWindowToContent();
     } else if (r.blocked && r.retryAfter) {
@@ -1162,7 +1187,7 @@ bugSubmit?.addEventListener('click', async () => {
       setBugLoading(false);
       iniciarContagemBloqueio(r.retryAfter);
     } else {
-      setBugStatus(r.error || 'Falha ao enviar.', false);
+      setBugStatus(r.error || 'Não foi dessa vez. Tenta de novo daqui a pouco.', false);
       setBugLoading(false);
     }
   } catch (err) {
@@ -1189,8 +1214,8 @@ function iniciarContagemBloqueio(segundos: number) {
     if (bugStatus) {
       bugStatus.textContent =
         restante > 60
-          ? `Você está bloqueado por enviar reports em excesso. Tente novamente em ${Math.ceil(restante / 60)}min.`
-          : `Você está bloqueado por enviar reports em excesso. Tente novamente em ${restante}s.`;
+          ? `Calma. Você mandou relatos demais. Tenta de novo em ${Math.ceil(restante / 60)} min.`
+          : `Calma. Você mandou relatos demais. Tenta de novo em ${restante}s.`;
     }
     if (bugSubmit) bugSubmit.disabled = true;
     if (restante <= 0) {

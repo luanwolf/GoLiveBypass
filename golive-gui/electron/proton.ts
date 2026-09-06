@@ -252,6 +252,59 @@ function ensureInstallDir(installDir: string) {
   fs.mkdirSync(installDir, { recursive: true });
 }
 
+export function protonSettingsPatch(settings: {
+  username?: string;
+  country?: string;
+  freeOnly?: boolean;
+  autoPing?: boolean;
+  stayLoggedIn?: boolean;
+}): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (typeof settings.username === 'string') patch.protonUsername = settings.username;
+  if (typeof settings.country === 'string') patch.protonCountry = settings.country;
+  if (typeof settings.freeOnly === 'boolean') patch.protonFreeOnly = settings.freeOnly;
+  if (typeof settings.autoPing === 'boolean') patch.protonAutoPing = settings.autoPing;
+  if (typeof settings.stayLoggedIn === 'boolean') patch.protonStayLoggedIn = settings.stayLoggedIn;
+  return patch;
+}
+
+export function readLocalProtonSession(installDir: string, username?: string): {
+  valid: boolean;
+  username?: string;
+  expiresIn?: string;
+  error?: string;
+} {
+  try {
+    const raw = JSON.parse(fs.readFileSync(getProtonSessionFile(installDir), 'utf8')) as {
+      username?: string;
+      expires_at?: string;
+      session?: { RefreshToken?: string; AccessToken?: string };
+    };
+    const savedUser = typeof raw.username === 'string' ? raw.username.trim() : '';
+    if (!savedUser || !raw.session) {
+      return { valid: false, error: 'Sessão inválida ou não encontrada.' };
+    }
+    if (username && !protonIdentityMatches(savedUser, username)) {
+      return { valid: false, error: 'Sessão de outro usuário.' };
+    }
+    if (!raw.session.RefreshToken && !raw.session.AccessToken) {
+      return { valid: false, error: 'Sessão inválida ou não encontrada.' };
+    }
+    return { valid: true, username: savedUser, expiresIn: raw.expires_at };
+  } catch {
+    return { valid: false, error: 'Sessão inválida ou não encontrada.' };
+  }
+}
+
+export function hasReusableProtonConfig(installDir: string): boolean {
+  try {
+    const conf = fs.readFileSync(path.join(installDir, 'wireguard.conf'), 'utf8');
+    return /\[Interface\]/.test(conf) && /\[Peer\]/.test(conf);
+  } catch {
+    return false;
+  }
+}
+
 export async function checkProtonSession(
   installDir: string,
   username: string
@@ -259,33 +312,7 @@ export async function checkProtonSession(
   if (!username) {
     return { valid: false, error: 'Usuário não especificado.' };
   }
-
-  const sessionFile = getProtonSessionFile(installDir);
-  ensureInstallDir(installDir);
-  const res = await runConfgen({
-    args: [
-      '-username',
-      username,
-      '-session-file',
-      sessionFile,
-      '-check-session',
-      '-json',
-    ],
-    timeoutMs: 10000,
-  });
-
-  if (res.json && res.json.valid) {
-    return {
-      valid: true,
-      username: res.json.username || username,
-      expiresIn: res.json.expiresIn,
-    };
-  }
-
-  return {
-    valid: false,
-    error: res.json?.error || res.stderr || 'Sessão inválida ou não encontrada.',
-  };
+  return readLocalProtonSession(installDir, username);
 }
 
 export async function loginProton(
@@ -309,6 +336,8 @@ export async function loginProton(
     sessionFile,
     '-login-only',
     '-json',
+    '-session-duration',
+    '30d',
   ];
 
   if (password) {
@@ -395,6 +424,12 @@ export async function generateOptimalProtonConfig(
     outputFile,
     '-json',
     '-ipv6',
+    '-device-name',
+    'GoLiveBypass',
+    '-duration',
+    '365d',
+    '-session-duration',
+    '30d',
   ];
 
   if (options.autoPing !== false) {

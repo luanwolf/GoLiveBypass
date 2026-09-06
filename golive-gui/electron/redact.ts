@@ -39,6 +39,7 @@ export function l1Padroes(texto: string): string {
       .replace(RE_HOME_POSIX, "$1<usuario>")
       .replace(RE_HOME_WINDOWS, "$1<usuario>")
       .replace(RE_IDENTITY_LABEL, "$1$2<usuario>")
+      .replace(/\b(PrivateKey|PresharedKey)\s*=\s*\S+/gi, "$1 = <redacted>")
   );
 }
 

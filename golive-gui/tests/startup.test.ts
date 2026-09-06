@@ -18,24 +18,16 @@ import { join } from "path";
 const helper = readFileSync(join(__dirname, "..", "electron", "startup.ts"), "utf8");
 
 describe("startup helper (source checks)", () => {
-  it("escreve em HKCU e nao em HKLM (sem elevacao)", () => {
-    // O caminho comeca com HKCU (do usuario) e nao HKLM (sistema, exige
-    // admin). Sem isso, em Windows portable, o setLoginItemSettings
-    // funcionaria mas exigiria elevacao que o portable nao tem.
+  it("sobe elevado no login via tarefa e nao via HKLM", () => {
+    expect(helper).toContain('"/RL", "HIGHEST"');
+    expect(helper).toContain("schtasks.exe");
+    expect(helper).toContain("ONLOGON");
     expect(helper).toContain("HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run");
     expect(helper).not.toContain("HKLM");
   });
 
   it("envolve o caminho do exe em aspas para suportar espacos", () => {
-    // O caminho do portable e tipicamente "C:\\Program Files\\GoLiveBypass-1.1.9.exe"
-    // (instalado pelo usuario em Program Files). reg.exe interpreta a string
-    // como valor REG_SZ: espacos sem aspas quebram a string em varios
-    // argumentos. O prefixo \" ... \" garante que o caminho e
-    // interpretado como um unico valor. No Linux, process.execPath nao
-    // serve dentro de um AppImage (o caminho e o mountpoint FUSE temporario
-    // /tmp/.mount_GoLiveXXX/golive-gui que some quando o AppImage desmonta),
-    // entao o helper realExecPath() cai para a env APPIMAGE.
-    expect(helper).toMatch(/\\"\$\{executable\}\\"/);
+    expect(helper).toContain('`"${executable}" --hidden`');
     expect(helper).toContain("realExecPath");
     expect(helper).toMatch(/APPIMAGE/);
   });

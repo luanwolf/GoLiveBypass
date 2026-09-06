@@ -85,12 +85,18 @@ describe("escolherRelease (candidata de update por canal)", () => {
 });
 
 describe("wiring do canal no updater e no workflow", () => {
-  it("o updater liga allowPrerelease no Linux e usa escolherRelease no Windows", () => {
+  it("nao consulta o GitHub original nem liga o updater", () => {
     const updater = fs.readFileSync(path.resolve(process.cwd(), "electron/updater.ts"), "utf8");
-    expect(updater).toContain('autoUpdater.allowPrerelease = canalAtual() === "beta"');
-    expect(updater).toContain("escolherRelease(releases, app.getVersion(), canalAtual())");
-    // a comparacao por string que faria downgrade foi embora
-    expect(updater).not.toContain("const isNewer = latest !== current;");
+    const setup = updater.slice(updater.indexOf("export function setupUpdater"), updater.indexOf("export function setupUpdater") + 900);
+    expect(setup).toContain("nao consulta o GitHub original");
+    const firstReturn = setup.indexOf("return;");
+    const githubCall = setup.indexOf("githubReleases");
+    expect(firstReturn).toBeGreaterThan(0);
+    expect(githubCall).toBe(-1);
+
+    const main = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
+    expect(main).not.toContain("setupUpdater(");
+    expect(main).toMatch(/export function readAutoUpdate\(\)[\s\S]*?return false;/);
   });
 
   it("o workflow publica prerelease no canal beta e pula mac/assets", () => {
