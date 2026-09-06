@@ -8,6 +8,7 @@ import {
   buildWindowsUpdateScript,
   cleanupOldExe,
   OLD_SUFFIX,
+  stagedPortablePath,
 } from "../electron/updater-replace";
 
 // O cenario do Windows (exe em uso nao apaga, mas renomeia) nao existe no Linux —
@@ -66,35 +67,34 @@ describe("updater-replace", () => {
 
   it("bat do helper e ASCII puro com caminhos como argumentos (imune ao codepage OEM)", () => {
     const script = buildWindowsUpdateScript();
-    // cmd le .bat no codepage OEM: qualquer nao-ASCII no conteudo e lido errado.
     expect(script).toMatch(/^[\x20-\x7E\r\n]+$/);
-    // Os caminhos NUNCA sao embutidos: chegam como %1 (exe novo), %2 (.old, sonda de
-    // espera/limpeza) e %3 (.vbs a limpar).
     expect(script).toContain('start "" "%~1"');
-    expect(script).toContain('del "%~2" >NUL 2>&1');
+    expect(script).toContain('PID eq %~4');
     expect(script).toContain('del "%~3" >NUL 2>&1');
-    // Depois de lancar, o bat apaga a si mesmo.
     expect(script).toContain('del "%~f0"');
-    // Linhas CRLF: e um arquivo para o cmd do Windows (todo \n precedido de \r).
     expect(script).not.toMatch(/(^|[^\r])\n/);
     expect(script.split("\r\n").length).toBeGreaterThan(10);
-    // Esgotou as tentativas, lanca mesmo assim (nao deixa o usuario sem app).
     expect(script).toContain("goto launch");
   });
 
-  it("vbs do helper comeca com BOM UTF-16LE e cita os quatro caminhos", () => {
+  it("vbs do helper comeca com BOM UTF-16LE e cita os quatro caminhos mais o pid", () => {
     const bat = "C:\\Users\\João\\AppData\\Local\\Temp\\g-1.bat";
     const exe = "C:\\Users\\João\\Desktop\\GoLiveBypass-1.1.12.exe";
     const vbs = "C:\\Users\\João\\AppData\\Local\\Temp\\g-1.vbs";
-    const launcher = buildWindowsUpdateLauncher(bat, exe, exe + OLD_SUFFIX, vbs);
-    // Sem o BOM o wscript le o arquivo como ANSI e o acento corrompe o script.
+    const launcher = buildWindowsUpdateLauncher(bat, exe, exe + OLD_SUFFIX, vbs, 4321);
     expect(launcher.charCodeAt(0)).toBe(0xfeff);
-    // Conteudo do arquivo sera gravado em utf16le (o teste cobre o texto logico).
     expect(launcher).toContain(bat);
     expect(launcher).toContain(exe);
     expect(launcher).toContain(vbs);
-    // Cada caminho entre Chr(34): espaco e acento nao quebram a linha de comando.
     expect(launcher).toContain(`Chr(34) & "${exe}" & Chr(34)`);
+    expect(launcher).toContain(`Chr(34) & "4321" & Chr(34)`);
     expect(launcher).toContain(", 0, False");
+  });
+
+  it("grava o exe novo ao lado, sem sobrescrever o que esta rodando", () => {
+    const current = path.join("D:", "apps", "GoLiveBypass-2.1.5.exe");
+    expect(stagedPortablePath(current, "2.1.7")).toBe(path.join("D:", "apps", "GoLiveBypass-2.1.7.exe"));
+    const same = path.join("D:", "apps", "GoLiveBypass-2.1.7.exe");
+    expect(stagedPortablePath(same, "2.1.7")).toBe(`${same}.new`);
   });
 });

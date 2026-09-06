@@ -4,6 +4,11 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.7] - 2026-09-06
+
+### Corrigido
+- **Atualizador Windows:** clicar em “Atualizar agora” gravava o exe novo e fechava a janela, mas a troca falhava (`EBUSY` no stub portable) ou o helper reabria cedo demais (lock de instância única). Agora baixa um `GoLiveBypass-X.Y.Z.exe` ao lado e só abre quando o processo antigo já saiu.
+
 ## [2.1.6] - 2026-09-06
 
 ### Alterado

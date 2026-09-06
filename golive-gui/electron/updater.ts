@@ -3,9 +3,10 @@
 // Windows: o target e portable, e o electron-updater nao suporta portable (so NSIS).
 // Entao o update do Windows e proprio: consulta as releases na API do GitHub (canal
 // estavel so ve releases "de verdade"; o canal beta dos testadores inclui as
-// prereleases — regra de escolha no updater-channel.ts), baixa o exe novo,
-// substitui o atual (via PORTABLE_EXECUTABLE_FILE, a variavel que o electron-builder
-// portable define) e reabre a versao nova.
+// prereleases — regra de escolha no updater-channel.ts), baixa o exe novo ao lado
+// do stub atual (PORTABLE_EXECUTABLE_FILE) e reabre depois que o PID velho some.
+// Renomear o stub em uso falhava com EBUSY; o .old tambem nao serve de sonda,
+// porque a imagem em execucao e o Electron extraido em %TEMP%.
 //
 // Mac e Linux: o autoUpdater do electron-updater cuida (dmg/zip assinado e AppImage).
 // O canal beta do Linux e nativo do electron-updater: allowPrerelease faz ele ler o
@@ -13,15 +14,14 @@
 // de prerelease — em vez do latest.yml.
 
 import { app, dialog, BrowserWindow } from "electron";
-import { createWriteStream, readFileSync } from "fs";
+import { createWriteStream, readFileSync, copyFileSync, unlinkSync } from "fs";
 import { createHash } from "crypto";
 import { rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { spawn } from "child_process";
 import { autoUpdater } from "electron-updater";
 import { request } from "https";
-import { attemptReplace, cleanupOldExe, OLD_SUFFIX, spawnWindowsUpdateHelper } from "./updater-replace";
+import { cleanupOldExe, spawnWindowsUpdateHelper, stagedPortablePath } from "./updater-replace";
 import { escolherRelease, type Canal, type ReleaseCandidata } from "./updater-channel";
 
 const REPO = "luanwolf/GoLiveBypass";
@@ -173,11 +173,14 @@ function tryReplace(target: string, downloaded: string): Promise<boolean> {
   return new Promise((resolve) => {
     const attempt = (tries: number) => {
       try {
-        attemptReplace(target, downloaded);
+        copyFileSync(downloaded, target);
+        try {
+          unlinkSync(downloaded);
+        } catch {}
         resolve(true);
       } catch (error) {
         if (tries <= 0) {
-          console.error("[updater] substituicao falhou:", error);
+          console.error("[updater] copia do exe novo falhou:", error);
           return resolve(false);
         }
         setTimeout(() => attempt(tries - 1), RETRY_DELAY_MS);
@@ -187,7 +190,7 @@ function tryReplace(target: string, downloaded: string): Promise<boolean> {
   });
 }
 
-async function updateWindowsPortable(url: string, digest: string | null): Promise<boolean> {
+async function updateWindowsPortable(url: string, digest: string | null, version: string): Promise<boolean> {
   const current = portableExePath();
   if (current === null) {
     console.warn("[updater] PORTABLE_EXECUTABLE_FILE nao definido; pulando update.");
@@ -202,32 +205,23 @@ async function updateWindowsPortable(url: string, digest: string | null): Promis
     return false;
   }
 
-  // Conferido antes de encostar no exe em uso: depois do rename nao ha volta, o app se
-  // substituiu. Um arquivo que nao bate e apagado e a versao atual continua valendo.
   if (!digestMatches(downloaded, digest)) {
     await rm(downloaded, { force: true }).catch(() => {});
     return false;
   }
 
-  if (!(await tryReplace(current, downloaded))) {
-    console.error("[updater] nao consegui substituir o exe em uso.");
+  const dest = stagedPortablePath(current, version);
+  if (!(await tryReplace(dest, downloaded))) {
+    console.error("[updater] nao consegui gravar o exe novo.", { dest });
     return false;
   }
 
-  // Abre a versao nova e encerra a atual. O quit nao reverte o bypass: o novo
-  // processo assume e o before-quit do processo antigo desfaria a injecao.
   markQuittingForUpdate();
-  // A troca ja aconteceu (o novo esta no lugar, o velho virou ".old" e segue rodando).
-  // Quem reabre e o helper externo: espera o processo velho morrer de verdade — a sonda
-  // e o delete do proprio ".old", que o Windows recusa enquanto a imagem roda — antes de
-  // lancar o exe novo, sem correr contra o lock de instancia unica (o "fecha mas nao
-  // abre"), e limpa a sobra. Se o helper nao subir (tmp fora do ar, rarissimo), cai para
-  // o spawn direto: corre contra o lock, mas e melhor do que nunca reabrir.
-  if (!spawnWindowsUpdateHelper(current, current + OLD_SUFFIX)) {
-    console.warn("[updater] helper de relanco nao subiu; usando spawn direto.");
-    spawn(current, [], { detached: true, stdio: "ignore" })
-      .on("error", (error) => console.error("[updater] exe novo nao abriu:", error))
-      .unref();
+  if (!spawnWindowsUpdateHelper(dest, current, process.pid)) {
+    // Sem helper o exe novo ja esta no disco, mas abrir agora bate no lock
+    // de instancia unica e some. Deixa o dialogo de falha pedir download manual.
+    console.error("[updater] helper de relanco nao subiu.", { dest });
+    return false;
   }
   return true;
 }
@@ -371,7 +365,7 @@ export async function checkWindowsUpdate(
 
     if (choice !== 0) return;
 
-    const ok = await updateWindowsPortable(escolhida.url, escolhida.digest);
+    const ok = await updateWindowsPortable(escolhida.url, escolhida.digest, latest);
     if (ok) {
       updateReady = true;
       app.quit();

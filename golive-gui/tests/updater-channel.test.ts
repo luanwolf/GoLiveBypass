@@ -99,6 +99,10 @@ describe("wiring do canal no updater e no workflow", () => {
     const main = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
     expect(main).toContain("setupUpdater(");
     expect(main).toMatch(/export function readAutoUpdate\(\)[\s\S]*?return true;/);
+    expect(updater).toContain("stagedPortablePath");
+    expect(updater).toContain("copyFileSync");
+    expect(updater).toContain("process.pid");
+    expect(updater).not.toContain("attemptReplace");
   });
 
   it("o workflow publica prerelease no canal beta e pula mac/assets", () => {
