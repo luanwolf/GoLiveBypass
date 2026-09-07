@@ -4,6 +4,11 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.9] - 2026-09-06
+
+### Alterado
+- Janela de atualização: título **Atualização disponível** e texto “Baixar e instalar update agora? O app irá reiniciar durante o processo.”
+
 ## [2.1.8] - 2026-09-06
 
 ### Alterado

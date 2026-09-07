@@ -292,9 +292,9 @@ export function setupUpdater(
       const choice = win
         ? (await dialog.showMessageBox(win, {
             type: "info",
-            title: "Tem versão nova",
+            title: "Atualização disponível",
             message: `O GoLiveBypass ${info.version} já baixou.`,
-            detail: "Reinicia agora pra aplicar? O app fecha e abre sozinho.",
+            detail: "Baixar e instalar update agora? O app irá reiniciar durante o processo.",
             buttons: ["Reiniciar agora", "Depois"],
             defaultId: 0,
             cancelId: 1,
@@ -352,11 +352,11 @@ export async function checkWindowsUpdate(
     const choice = win
       ? (await dialog.showMessageBox(win, {
           type: "info",
-          title: "Tem versão nova",
+          title: "Atualização disponível",
           message: `O GoLiveBypass ${latest}${ehBeta ? " (beta)" : ""} chegou.`,
           detail: ehBeta
-            ? "Versão de teste do canal beta. Baixa e instala agora? O app reabre sozinho no fim."
-            : "Baixa e instala agora? O app reabre sozinho no fim.",
+            ? "Versão de teste do canal beta. Baixar e instalar update agora? O app irá reiniciar durante o processo."
+            : "Baixar e instalar update agora? O app irá reiniciar durante o processo.",
           buttons: ["Atualizar agora", "Depois"],
           defaultId: 0,
           cancelId: 1,

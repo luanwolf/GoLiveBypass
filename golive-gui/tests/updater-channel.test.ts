@@ -103,6 +103,9 @@ describe("wiring do canal no updater e no workflow", () => {
     expect(updater).toContain("copyFileSync");
     expect(updater).toContain("process.pid");
     expect(updater).not.toContain("attemptReplace");
+    expect(updater).toContain('title: "Atualização disponível"');
+    expect(updater).toContain("Baixar e instalar update agora? O app irá reiniciar durante o processo.");
+    expect(updater).not.toContain("Tem versão nova");
   });
 
   it("o workflow publica prerelease no canal beta e pula mac/assets", () => {
