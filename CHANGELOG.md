@@ -4,6 +4,15 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.1.8] - 2026-09-06
+
+### Alterado
+- Aba Proton: **Proton**.
+- Aba Kaspersky usa o favicon do site [kaspersky.com.br](https://www.kaspersky.com.br/).
+- Aba Kaspersky: título **Rota predefinida**, aviso de responsabilidade, Importar/Testar e caixa de soltar `.conf`.
+- Sem rota ligada, o aviso de provedor fica visível em Proton, Kaspersky e Arquivo .conf.
+- Textos da Proton, do botão de ligar e do toggle de inicialização; **Manter conectado** fica acima do login. Módulo Bypass alinhado ao da rota (kicker no canto superior esquerdo). Disclaimer do Discord/bandeja no quadro da esquerda.
+
 ## [2.1.7] - 2026-09-06
 
 ### Corrigido

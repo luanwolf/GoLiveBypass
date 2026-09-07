@@ -47,6 +47,10 @@ describe("controles Proton", () => {
     const html = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf8");
     expect(html).toContain('id="protonStayLoggedIn"');
     expect(html).toContain("Manter conectado");
+    expect(html).not.toContain("Mantém o login neste computador");
+    expect(html.indexOf('id="protonStayLoggedIn"')).toBeLessThan(html.indexOf('id="protonLoginBtn"'));
+    expect(html).toContain("Como o Discord se conecta com a internet");
+    expect(html).toContain("Para otimizar as rotas, medimos as velocidades de download e upload através do túnel, priorizando o desempenho.");
     const ui = fs.readFileSync(path.resolve(process.cwd(), "src/main.ts"), "utf8");
     expect(ui).toContain("stayLoggedIn: protonStayLoggedIn.checked");
     const main = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
@@ -57,9 +61,9 @@ describe("controles Proton", () => {
 
   it("avisa que .conf dedicado ajuda em upload e deixa copiar diagnostico", () => {
     const html = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf8");
-    expect(html).toContain("Se o envio de foto no chat travar");
+    expect(html).toContain("Se o envio de fotos no chat travar");
     expect(html).toContain('id="bugCopyDiag"');
-    expect(html).not.toContain("github.com/bezumiya/GoLiveBypass");
+    expect(html).toContain("github.com/bezumiya/GoLiveBypass#agradecimentos");
     expect(html).toContain("Avisar sobre atualizações");
     expect(html).not.toContain('settings-section--behavior" hidden');
   });

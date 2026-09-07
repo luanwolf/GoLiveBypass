@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GoLiveBypass</title>
     <script>
-      // Aplica o tema antes do CSS carregar para nao piscar claro.
-      // Padrao: dark; respeita o que o usuario salvou.
+      // Aplica o tema antes do CSS carregar para não piscar em claro.
+      // Padrão: dark; respeita o tema que o usuário salvou.
       try {
         var t = localStorage.getItem("golivebypass-theme");
         document.documentElement.dataset.theme =
@@ -41,7 +41,7 @@
           </div>
 
           <p class="tagline">
-            Libera o Go Live e a c&acirc;mera no Discord, pra quem t&aacute; no Brasil.
+            Devolve o Go Live e a câmera no Discord, no Brasil.
           </p>
         </header>
 
@@ -86,15 +86,17 @@
 
         <div class="control-layout">
           <section class="bypass-column" aria-label="Controle do bypass">
-            <div class="bypass-heading">
-              <span class="bypass-kicker">Bypass</span>
+            <div class="vpn-card-heading">
+              <div>
+                <span class="vpn-card-kicker">Bypass</span>
+                <p class="vpn-card-title">Libere o Go Live no Discord usando a rota escolhida ao lado.</p>
+              </div>
             </div>
-            <p class="bypass-description">Liga o túnel só no Discord. Navegador, jogos e o resto do PC continuam na sua internet.</p>
 
             <div class="status-card" id="statusCard" hidden>
               <span class="status-indicator" id="statusIndicator"></span>
-              <span id="statusText">Dá um segundo…</span>
-              <span class="status-tag" id="statusTag">...</span>
+              <span id="statusText">Verificando...</span>
+              <span class="status-tag" id="statusTag">—</span>
               <code id="linuxPreflightCommand" class="linux-preflight-command" hidden></code>
             </div>
 
@@ -117,7 +119,7 @@
           >
             <rect x="6" y="6" width="12" height="12" rx="2" />
           </svg>
-          <span class="btn-text" id="btnText">Um instante…</span>
+          <span class="btn-text" id="btnText">Carregando</span>
           <div class="spinner" id="btnSpinner" aria-hidden="true"></div>
             </button>
 
@@ -126,9 +128,13 @@
               <span class="switch-track" aria-hidden="true">
                 <span class="switch-thumb"></span>
               </span>
-              <span id="startupLabel">Abrir junto com o Windows</span>
+              <span id="startupLabel">Iniciar com o Windows?</span>
             </label>
-            <button id="restoreInternetBtn" class="restore-network-btn" type="button" hidden>Restaurar internet</button>
+            <button id="restoreInternetBtn" class="restore-network-btn" type="button" hidden>Restaurar a internet</button>
+            <p class="bypass-disclaimer">
+              O Discord só abre quando a rota certa estiver confirmada. Se cair, o app tenta outra rota e reabre automaticamente.
+              <span id="closeHint">Fechar a janela esconde o app na bandeja, junto do relógio — para reverter tudo, saia pelo ícone de lá.</span>
+            </p>
           </section>
 
           <section class="connection-column" aria-label="Opções de conexão">
@@ -136,7 +142,7 @@
           <div class="vpn-card-heading">
             <div>
               <span class="vpn-card-kicker">Sua rota</span>
-              <p class="vpn-card-title">Como o Discord sai pra internet</p>
+              <p class="vpn-card-title">Como o Discord se conecta com a internet</p>
             </div>
           </div>
 
@@ -146,13 +152,10 @@
               <svg class="vpn-brand-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path fill="currentColor" d="M2.474 17.75V24h4.401v-5.979c0-.582.232-1.14.645-1.551a2.204 2.204 0 0 1 1.556-.643h4.513a7.955 7.955 0 0 0 5.612-2.318 7.907 7.907 0 0 0 2.325-5.595 7.91 7.91 0 0 0-2.325-5.596A7.958 7.958 0 0 0 13.587 0H2.474v7.812h4.401V4.129h6.416c.995 0 1.951.394 2.656 1.097.704.7 1.1 1.653 1.101 2.646a3.742 3.742 0 0 1-1.101 2.648 3.766 3.766 0 0 1-2.656 1.097H8.627a6.158 6.158 0 0 0-4.352 1.795 6.133 6.133 0 0 0-1.801 4.338Z"/>
               </svg>
-              <span>Proton (automático)</span>
+              <span>Proton</span>
             </button>
             <button type="button" class="vpn-mode-tab" id="tabKaspersky" role="tab" aria-selected="false" aria-controls="panelKaspersky" title="Usa o WireGuard da Kaspersky só no Discord. O resto do PC fica na sua internet">
-              <svg class="vpn-brand-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                <rect width="24" height="24" rx="5.5" fill="#00A88E"/>
-                <path fill="#fff" d="M7 4.6h3.35v5.7l5.15-5.7H19L12.7 11.2 19.4 19.4h-3.85l-5.2-6.55v6.55H7V4.6z"/>
-              </svg>
+              <img class="vpn-brand-icon" src="./assets/kaspersky-favicon.png" width="15" height="15" alt="" aria-hidden="true" draggable="false" />
               <span>Kaspersky</span>
             </button>
             <button type="button" class="vpn-mode-tab" id="tabCustom" role="tab" aria-selected="false" aria-controls="panelCustom" title="Se você já tem um arquivo WireGuard .conf, é por aqui">
@@ -169,9 +172,9 @@
             <!-- Formulario de Login -->
             <div id="protonAuthForm" class="proton-auth-form" hidden>
               <p class="proton-auto-hint">
-                <span class="proton-panel-title">Deixa a Proton escolher</span>
-                <span class="proton-recommended">Mais fácil</span>
-                <span class="proton-panel-copy">Entra na conta. O app escolhe o servidor mais rápido.</span>
+                <span class="proton-panel-title">Rota automática</span>
+                <span class="proton-recommended">Recomendado</span>
+                <span class="proton-panel-copy">Para otimizar as rotas, medimos as velocidades de download e upload através do túnel, priorizando o desempenho.</span>
               </p>
 
               <div class="proton-form-fields">
@@ -224,13 +227,18 @@
                   </div>
                 </div>
               </div>
+              <label class="proton-stay">
+                <input type="checkbox" id="protonStayLoggedIn" checked />
+                <span>Manter conectado</span>
+              </label>
               <button type="button" id="protonLoginBtn" class="proton-btn proton-btn--primary">
-                <span id="protonLoginBtnText">Entrar na Proton</span>
+                <span id="protonLoginBtnText">Conectar conta Proton</span>
                 <div class="spinner" id="protonLoginSpinner" aria-hidden="true" hidden></div>
               </button>
               <p class="proton-hint">
-                Conta grátis já resolve. Ainda não tem?
-                <a href="https://account.proton.me/signup" target="_blank" rel="noopener">Criar uma Proton</a>
+                Não possui conta Proton? Crie uma conta gratuitamente
+                <a href="https://account.proton.me/signup" target="_blank" rel="noopener">clicando aqui</a>.
+                Contas grátis são o suficiente para uma boa rota!
               </p>
             </div>
 
@@ -240,11 +248,11 @@
                 <div class="proton-user-info">
                   <span class="proton-dot" id="protonDot"></span>
                   <div>
-                    <span class="proton-status-label">Proton conectada</span>
-                    <span id="protonUserDisplay" class="proton-private-email" tabindex="0" title="Passe o mouse pra ver o e-mail">Procurando sua conta…</span>
+                    <span class="proton-status-label">Conta conectada</span>
+                    <span id="protonUserDisplay" class="proton-private-email" tabindex="0" title="Passe o mouse para visualizar">Verificando conta Proton...</span>
                   </div>
                 </div>
-                <button type="button" id="protonLogoutBtn" class="proton-logout-btn" title="Sair da Proton neste app">Sair</button>
+                <button type="button" id="protonLogoutBtn" class="proton-logout-btn" title="Desconectar conta Proton">Sair</button>
               </div>
 
               <div class="proton-controls-row">
@@ -265,17 +273,12 @@
               </div>
 
               <div id="protonServerBadge" class="proton-server-badge">
-                <span class="proton-server-caption">Rota de agora</span>
-                <span class="proton-server-name" id="protonServerName">Servidor no ponto</span>
-                <span class="proton-ping-pill" id="protonServerPing">... ms</span>
-                <span class="proton-load-pill" id="protonServerLoad">...% carga</span>
+                <span class="proton-server-caption">Rota ativa</span>
+                <span class="proton-server-name" id="protonServerName">Servidor otimizado</span>
+                <span class="proton-ping-pill" id="protonServerPing">— ms</span>
+                <span class="proton-load-pill" id="protonServerLoad">—% carga</span>
               </div>
             </div>
-            <label class="proton-stay">
-              <input type="checkbox" id="protonStayLoggedIn" checked />
-              <span>Manter conectado</span>
-            </label>
-            <p class="proton-hint proton-stay-hint">Guarda o login neste computador.</p>
             <div class="proton-feedback" id="protonFeedback" hidden></div>
           </div>
 
@@ -318,23 +321,33 @@
               </div>
             </div>
             <div class="vpn-test-feedback" id="vpnTestFeedback" hidden></div>
-            <p class="proton-hint">Se o envio de foto no chat travar, use um arquivo .conf só seu.</p>
+            <p class="proton-hint">Se o envio de fotos no chat travar, use um arquivo .conf só seu.</p>
           </div>
 
           <div class="vpn-panel" id="panelKaspersky" role="tabpanel" aria-labelledby="tabKaspersky" hidden>
             <p class="proton-auto-hint">
-              <span class="proton-panel-title">Kaspersky só no Discord</span>
-              <span class="proton-panel-copy">O resto do computador continua na sua internet. Você baixa um .conf WireGuard no My Kaspersky e importa aqui.</span>
+              <span class="proton-panel-title">Rota predefinida</span>
+              <span class="proton-panel-copy">A definição do servidor para conexão da rota é de responsabilidade do usuário. A plataforma não se responsabiliza por eventuais lentidões decorrentes desta escolha.</span>
             </p>
             <ol class="kaspersky-steps">
-              <li>Abra o My Kaspersky, aba VPN, e crie um arquivo WireGuard (VPN para roteadores).</li>
-              <li>Importe o .conf aqui. O túnel vale só para o Discord.</li>
-              <li>Desligue o aplicativo Kaspersky VPN neste PC enquanto o bypass estiver ligado. Dois túneis ao mesmo tempo brigam.</li>
+              <li>Acesse o <a href="https://my.kaspersky.com" target="_blank" rel="noopener">My Kaspersky</a> → vá até VPN → VPN para roteadores</li>
+              <li>Configure seu WireGuard e baixe o arquivo .conf disponibilizado. *Caso não saiba como gerar, <a href="https://support.kaspersky.com/my-kaspersky/227551" target="_blank" rel="noopener">clique aqui</a>.</li>
+              <li>Importe o arquivo abaixo e ligue o bypass.</li>
             </ol>
-            <div class="kaspersky-links">
-              <a href="https://my.kaspersky.com" target="_blank" rel="noopener">Abrir My Kaspersky</a>
-              <a href="https://support.kaspersky.com/my-kaspersky/227551" target="_blank" rel="noopener">Como gerar o .conf</a>
+            <div class="vpn-drop-zone" id="kasperskyDropZone" tabindex="0" role="button" aria-label="Soltar um arquivo WireGuard .conf da Kaspersky ou escolher no computador">
+              <span class="vpn-drop-zone__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v11" />
+                  <path d="m8 10 4 4 4-4" />
+                  <path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+                </svg>
+              </span>
+              <span class="vpn-drop-zone__copy">
+                <strong>Solte o .conf aqui</strong>
+                <span>ou clique pra escolher no computador</span>
+              </span>
             </div>
+            <div class="vpn-drop-feedback" id="kasperskyDropFeedback" role="status" aria-live="polite" hidden></div>
             <div class="vpn-config-row">
               <div class="vpn-config-info">
                 <span class="vpn-config-status" id="kasperskyConfigStatus">Ainda sem arquivo</span>
@@ -348,9 +361,18 @@
                   </svg>
                   Importar
                 </button>
+                <button type="button" class="vpn-test-btn" id="kasperskyTestBtn" title="A gente confere se esse .conf faz sentido antes de ligar o túnel">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                  Testar
+                </button>
               </div>
             </div>
-            <p class="proton-hint">Se ficar um dia sem usar, a Kaspersky pode invalidar o arquivo. Aí é só baixar outro. Quem já usa o app Kaspersky VPN pode, em vez disso, marcar só o Discord em "aplicativos que sempre usam VPN" e não ligar o bypass.</p>
+            <div class="vpn-test-feedback" id="kasperskyTestFeedback" hidden></div>
+            <p class="proton-hint">Caso fique alguns dias sem utilizar o arquivo .conf, a Kaspersky pode invalidar seu arquivo, caso isto ocorra, basta apenas gerar outro.</p>
+            <p class="proton-hint proton-hint--italic">Se você possuir o software Kaspersky VPN, não deve deixá-lo ativo enquanto utiliza o bypass.</p>
           </div>
             </div>
           </section>
@@ -368,14 +390,10 @@
         >
 
         <footer class="footer">
-          <p class="disclaimer">
-            O Discord só abre quando a conexão estiver certa. Se cair, o app tenta outra rota sozinho.
-            <span id="closeHint"
-              >Fechar a janela só esconde o app na bandeja.
-              Pra sair de verdade, use o &iacute;cone ao lado do rel&oacute;gio.</span
-            >
+          <p class="credits">
+            Projeto open source, feito por
+            <a href="https://github.com/bezumiya/GoLiveBypass#agradecimentos" target="_blank" rel="noopener" class="credits-link">muita gente</a>.
           </p>
-          <p class="credits">Feito em aberto, por muita gente boa.</p>
         </footer>
 
         <div id="settingsDialog" class="settings-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -383,8 +401,8 @@
           <div class="settings-dialog__panel" role="document">
             <div class="settings-dialog__header">
               <div>
-                <span class="settings-dialog__eyebrow">Do seu jeito</span>
-                <h2 id="settingsTitle" class="settings-dialog__title">Ajustes</h2>
+                <span class="settings-dialog__eyebrow">Preferências</span>
+                <h2 id="settingsTitle" class="settings-dialog__title">Configurações</h2>
               </div>
               <button id="settingsClose" class="settings-dialog__close" type="button" aria-label="Fechar configurações">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
@@ -431,7 +449,7 @@
                 </span>
                 <span class="settings-switch__copy">
                   <span id="autoUpdateLabel" class="settings-switch__title">Avisar sobre atualizações</span>
-                  <span class="settings-switch__hint">Abre um aviso quando sair versão nova neste fork</span>
+                  <span class="settings-switch__hint">Receba novas versões</span>
                 </span>
                 <input type="checkbox" id="autoUpdateToggle" checked />
                 <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -441,7 +459,7 @@
                 <span class="settings-switch__icon settings-switch__icon--beta" aria-hidden="true">β</span>
                 <span class="settings-switch__copy">
                   <span id="updateChannelLabel" class="settings-switch__title">Canal beta</span>
-                  <span class="settings-switch__hint">Versões de teste, se você topa o risco</span>
+                  <span class="settings-switch__hint">Receba versões de teste</span>
                 </span>
                 <input type="checkbox" id="updateChannelToggle" />
                 <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -453,8 +471,8 @@
         <div id="bugDialog" class="bug-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="bugDialogTitle">
           <div class="bug-dialog__backdrop" id="bugBackdrop"></div>
           <div class="bug-dialog__panel" role="document">
-            <h2 id="bugDialogTitle" class="bug-dialog__title">Algo deu errado?</h2>
-            <p class="bug-dialog__hint">Nada sai daqui sozinho. Copia o diagnóstico e manda no Discord se quiser ajuda.</p>
+            <h2 id="bugDialogTitle" class="bug-dialog__title">Reportar bug</h2>
+            <p class="bug-dialog__hint">Descreva o problema. Logs da sessão são incluídos automaticamente — sua proxy é removida antes de enviar.</p>
             <div id="bugForm">
               <label class="bug-field">
                 <span>Resumo *</span>
@@ -481,8 +499,8 @@
                   <path d="M4.5 12.5 9.5 17.5 19.5 7" />
                 </svg>
               </div>
-              <h3>Valeu demais!</h3>
-              <p>Seu relato já foi. Isso ajuda o GoLiveBypass pra todo mundo que tá na mesma luta.</p>
+              <h3>Obrigado por ajudar!</h3>
+              <p>Seu report foi enviado com sucesso e já ajuda a melhorar o GoLiveBypass para toda a comunidade.</p>
               <p id="bugSuccessLink" class="bug-success__link"></p>
             </div>
             <p id="bugStatus" class="bug-status" role="status"></p>

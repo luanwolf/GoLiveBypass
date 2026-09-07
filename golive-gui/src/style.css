@@ -890,8 +890,15 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   user-select: none;
 }
 
-.vpn-mode-tab svg {
+.vpn-mode-tab svg,
+.vpn-mode-tab img.vpn-brand-icon {
   flex-shrink: 0;
+}
+
+.vpn-mode-tab img.vpn-brand-icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
 }
 
 .vpn-mode-tab#tabProton .vpn-brand-icon {
@@ -910,14 +917,7 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   margin: 0 0 6px;
 }
 
-.kaspersky-links {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-
-.kaspersky-links a {
+.kaspersky-steps a {
   color: #9a86ff;
 }
 
@@ -1071,6 +1071,10 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
   color: #5B3CE6;
 }
 
+.proton-hint--italic {
+  font-style: italic;
+}
+
 .proton-stay {
   display: flex;
   align-items: center;
@@ -1085,10 +1089,6 @@ html[data-theme='dark'] .switch-row input:checked + .switch-track .switch-thumb 
 
 .proton-stay input {
   accent-color: #6D4AFF;
-}
-
-.proton-stay-hint {
-  margin-top: 0;
 }
 
 /* Visão Conectada Proton */
@@ -2214,10 +2214,10 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
 .bypass-column {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 11px;
   min-width: 0;
-  padding: 20px;
+  padding: 18px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--surface);
@@ -2234,41 +2234,10 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
   height: 100%;
 }
 
-.bypass-heading {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 4px;
-  text-align: center;
-}
-
-.bypass-kicker {
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.bypass-title {
-  color: var(--ink-strong);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.bypass-description {
-  min-height: 31px;
-  color: var(--muted);
-  font-size: 10.5px;
-  line-height: 1.45;
-  text-align: center;
-}
-
 .bypass-column .toggle-btn {
   height: 46px;
+  margin-top: auto;
+  margin-bottom: auto;
   padding: 0 14px;
   font-size: 13px;
   line-height: 1.15;
@@ -2278,12 +2247,15 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr);
   align-items: start;
-  order: -1;
   padding: 9px 10px;
   gap: 7px;
   background: var(--surface-muted);
   border-color: var(--line);
   box-shadow: none;
+}
+
+.bypass-column .status-card[hidden] {
+  display: none;
 }
 
 .bypass-column .status-card #statusText {
@@ -2307,43 +2279,34 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
 }
 
 .bypass-column .switch-row {
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   padding-top: 1px;
-  font-size: 10.5px;
-}
-
-.bypass-note {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 0;
-  justify-content: center;
-  color: var(--faint);
-  font-size: 9px;
-  line-height: 1.3;
-}
-
-.bypass-note span {
-  color: var(--ok-ink);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .restore-network-btn {
-  align-self: center;
+  align-self: flex-start;
   margin-top: 6px;
   border: 1px solid var(--line);
   border-radius: 7px;
   padding: 6px 10px;
   color: var(--muted);
   background: var(--surface-muted);
-  font-size: 9px;
+  font-size: 12px;
   cursor: pointer;
 }
 
 .restore-network-btn:hover:not(:disabled) {
   color: var(--ink-strong);
   border-color: var(--ok-ink);
+}
+
+.bypass-disclaimer {
+  margin: 8px 0 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 @media (max-width: 640px) {
@@ -2378,10 +2341,6 @@ html[data-theme='dark'] .settings-switch input:checked + .switch-track .switch-t
 
   .control-layout {
     grid-template-columns: 1fr;
-  }
-
-  .bypass-description {
-    min-height: 0;
   }
 }
 

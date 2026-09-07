@@ -122,7 +122,7 @@ function applyPlatformCopy() {
   const startupLabel = document.getElementById('startupLabel');
   if (startupLabel) {
     // Linux: autostart XDG; Windows/Mac: login item. O rotulo acompanha o SO.
-    startupLabel.textContent = isMac ? 'Abrir junto com o Mac' : isLinux ? 'Abrir junto com o sistema' : 'Abrir junto com o Windows';
+    startupLabel.textContent = isMac ? 'Iniciar com o Mac?' : isLinux ? 'Iniciar com o sistema?' : 'Iniciar com o Windows?';
   }
 
   const closeHint = document.getElementById('closeHint');
@@ -179,12 +179,9 @@ const settingsBtn = document.getElementById('settingsBtn') as HTMLButtonElement 
 const settingsDialog = document.getElementById('settingsDialog') as HTMLElement | null;
 const settingsBackdrop = document.getElementById('settingsBackdrop') as HTMLElement | null;
 const settingsClose = document.getElementById('settingsClose') as HTMLButtonElement | null;
-const vpnImportBtn = document.getElementById('vpnImportBtn') as HTMLButtonElement | null;
 const vpnConfigStatus = document.getElementById('vpnConfigStatus') as HTMLElement | null;
-const kasperskyImportBtn = document.getElementById('kasperskyImportBtn') as HTMLButtonElement | null;
 const kasperskyConfigStatus = document.getElementById('kasperskyConfigStatus') as HTMLElement | null;
-const vpnDropZone = document.getElementById('vpnDropZone') as HTMLElement | null;
-const vpnDropFeedback = document.getElementById('vpnDropFeedback') as HTMLElement | null;
+const vpnDropZones = Array.from(document.querySelectorAll<HTMLElement>('.vpn-drop-zone'));
 
 let currentState = 'INACTIVE';
 let linuxPreflight: Awaited<ReturnType<Window['api']['getLinuxPreflight']>> = null;
@@ -309,26 +306,18 @@ async function updateStatus() {
         linuxPreflightCommand.hidden = false;
       }
     } else {
+      // Aviso fica visível em Proton/Kaspersky/.conf até o bypass ligar de verdade.
+      statusText.innerText = 'Selecione qual provedor você prefere utilizar para fazer a rota no Discord';
+      statusTag.textContent = 'Quase pronto';
+      statusTag.classList.add('tag--warn');
+      statusCard.hidden = false;
+      if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
       if (!hasSelectedConf) {
         toggleBtn.disabled = true;
-        btnText.innerText = 'Falta uma rota';
-        statusText.innerText = currentVpnMode === 'proton'
-          ? 'Entra na Proton aqui do lado pra gente poder ligar'
-          : currentVpnMode === 'kaspersky'
-            ? 'Importa o .conf da Kaspersky aqui do lado pra gente poder ligar'
-            : 'Importa um .conf do WireGuard aqui do lado pra gente poder ligar';
-        statusTag.textContent = 'Quase pronto';
-        statusTag.classList.add('tag--warn');
-        statusCard.hidden = false;
-        if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
+        btnText.innerText = 'Selecione o provedor desejado';
       } else {
         toggleBtn.disabled = false;
         btnText.innerText = 'Ligar o bypass';
-        statusText.innerText = 'Discord no ponto. Pode ligar.';
-        statusTag.textContent = 'Pronto';
-        statusTag.classList.add('tag--ok');
-        statusCard.hidden = true;
-        if (linuxPreflightCommand) linuxPreflightCommand.hidden = true;
       }
     }
   } catch (err) {
@@ -834,11 +823,8 @@ async function importWgConfFromPicker() {
     if (res && res.success) {
       await atualizarStatusWgConf();
       await updateStatus();
-      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
+      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} reconhecido, pode ligar o bypass.`, 'ok');
     } else if (res?.error) {
-      if (kasperskyConfigStatus && currentVpnMode === 'kaspersky') {
-        kasperskyConfigStatus.textContent = res.error;
-      }
       setVpnDropFeedback(res.error, 'bad');
     }
   } catch (err) {
@@ -846,18 +832,16 @@ async function importWgConfFromPicker() {
   }
 }
 
-vpnImportBtn?.addEventListener('click', () => void importWgConfFromPicker());
-kasperskyImportBtn?.addEventListener('click', () => void importWgConfFromPicker());
-
-function setVpnDropActive(active: boolean) {
-  vpnDropZone?.classList.toggle('vpn-drop-zone--active', active);
-}
+document.querySelectorAll<HTMLButtonElement>('.vpn-import-btn').forEach((btn) => {
+  btn.addEventListener('click', () => void importWgConfFromPicker());
+});
 
 function setVpnDropFeedback(message: string, type: 'ok' | 'bad') {
-  if (!vpnDropFeedback) return;
-  vpnDropFeedback.hidden = false;
-  vpnDropFeedback.className = `vpn-drop-feedback vpn-drop-feedback--${type}`;
-  vpnDropFeedback.textContent = message;
+  document.querySelectorAll<HTMLElement>('.vpn-drop-feedback').forEach((el) => {
+    el.hidden = false;
+    el.className = `vpn-drop-feedback vpn-drop-feedback--${type}`;
+    el.textContent = message;
+  });
   fitWindowToContent();
 }
 
@@ -876,7 +860,7 @@ async function importDroppedWgFile(file: File) {
   try {
     const res = await window.api.importWgConfFile(filePath);
     if (res?.success) {
-      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} entrou. Pode ligar o bypass.`, 'ok');
+      setVpnDropFeedback(`${res.fileName ?? 'WireGuard'} reconhecido, pode ligar o bypass.`, 'ok');
       await atualizarStatusWgConf();
       await updateStatus();
     } else {
@@ -887,59 +871,61 @@ async function importDroppedWgFile(file: File) {
   }
 }
 
-if (vpnDropZone) {
+function bindWgDropZone(zone: HTMLElement) {
   let dragDepth = 0;
-  vpnDropZone.addEventListener('click', () => vpnImportBtn?.click());
-  vpnDropZone.addEventListener('keydown', (event) => {
+  const setActive = (active: boolean) => zone.classList.toggle('vpn-drop-zone--active', active);
+  zone.addEventListener('click', () => void importWgConfFromPicker());
+  zone.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      vpnImportBtn?.click();
+      void importWgConfFromPicker();
     }
   });
-  vpnDropZone.addEventListener('dragenter', (event) => {
+  zone.addEventListener('dragenter', (event) => {
     event.preventDefault();
     dragDepth += 1;
-    setVpnDropActive(true);
+    setActive(true);
   });
-  vpnDropZone.addEventListener('dragover', (event) => {
+  zone.addEventListener('dragover', (event) => {
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-    setVpnDropActive(true);
+    setActive(true);
   });
-  vpnDropZone.addEventListener('dragleave', (event) => {
+  zone.addEventListener('dragleave', (event) => {
     event.preventDefault();
     dragDepth = Math.max(0, dragDepth - 1);
-    if (dragDepth === 0) setVpnDropActive(false);
+    if (dragDepth === 0) setActive(false);
   });
-  vpnDropZone.addEventListener('drop', async (event) => {
+  zone.addEventListener('drop', async (event) => {
     event.preventDefault();
     dragDepth = 0;
-    setVpnDropActive(false);
+    setActive(false);
     const file = event.dataTransfer?.files[0];
     if (file) await importDroppedWgFile(file);
   });
-
-  window.addEventListener('dragover', (event) => event.preventDefault());
-  window.addEventListener('drop', (event) => event.preventDefault());
 }
 
-const vpnTestBtn = document.getElementById('vpnTestBtn') as HTMLButtonElement | null;
-const vpnTestFeedback = document.getElementById('vpnTestFeedback') as HTMLElement | null;
+vpnDropZones.forEach(bindWgDropZone);
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
 
-if (vpnTestBtn && vpnTestFeedback) {
-  vpnTestBtn.addEventListener('click', async () => {
-    vpnTestBtn.disabled = true;
-    vpnTestFeedback.classList.remove('vpn-test-feedback--ok', 'vpn-test-feedback--bad');
-    vpnTestFeedback.classList.add('vpn-test-feedback--busy');
-    vpnTestFeedback.hidden = false;
-    vpnTestFeedback.textContent = 'Testando o .conf…';
+document.querySelectorAll<HTMLButtonElement>('.vpn-test-btn').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const panel = btn.closest('.vpn-panel');
+    const feedback = panel?.querySelector<HTMLElement>('.vpn-test-feedback');
+    if (!feedback) return;
+    btn.disabled = true;
+    feedback.classList.remove('vpn-test-feedback--ok', 'vpn-test-feedback--bad');
+    feedback.classList.add('vpn-test-feedback--busy');
+    feedback.hidden = false;
+    feedback.textContent = 'Testando o .conf…';
     fitWindowToContent();
 
     try {
       const r = await window.api.testWgConf();
-      vpnTestFeedback.classList.remove('vpn-test-feedback--busy');
+      feedback.classList.remove('vpn-test-feedback--busy');
       if (r.ok) {
-        vpnTestFeedback.classList.add('vpn-test-feedback--ok');
+        feedback.classList.add('vpn-test-feedback--ok');
         const partes = [`Endpoint ${r.endpoint ?? '?'}`];
         if (r.resolvedIp) partes.push(`resolve para ${r.resolvedIp}`);
         if (r.active && r.exitInfo?.ip) {
@@ -948,21 +934,21 @@ if (vpnTestBtn && vpnTestFeedback) {
         } else if (!r.active) {
           partes.push('bypass desligado, então não deu pra confirmar a saída de verdade');
         }
-        vpnTestFeedback.textContent = `Beleza: ${partes.join(' · ')}`;
+        feedback.textContent = `Beleza: ${partes.join(' · ')}`;
       } else {
-        vpnTestFeedback.classList.add('vpn-test-feedback--bad');
-        vpnTestFeedback.textContent = r.error ?? 'O teste não passou';
+        feedback.classList.add('vpn-test-feedback--bad');
+        feedback.textContent = r.error ?? 'O teste não passou';
       }
     } catch (err) {
-      vpnTestFeedback.classList.remove('vpn-test-feedback--busy');
-      vpnTestFeedback.classList.add('vpn-test-feedback--bad');
-      vpnTestFeedback.textContent = err instanceof Error ? err.message : String(err);
+      feedback.classList.remove('vpn-test-feedback--busy');
+      feedback.classList.add('vpn-test-feedback--bad');
+      feedback.textContent = err instanceof Error ? err.message : String(err);
     } finally {
-      vpnTestBtn.disabled = false;
+      btn.disabled = false;
       fitWindowToContent();
     }
   });
-}
+});
 
 const vpsGuide = document.querySelector('.vps-guide');
 if (vpsGuide) {

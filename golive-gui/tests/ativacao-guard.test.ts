@@ -142,7 +142,7 @@ describe("guarda de ativacao duplicada", () => {
     expect(readiness).toContain('"disconnected" : "unverified"');
 
     const ui = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf8");
-    expect(ui).toContain("O Discord só abre quando a conexão estiver certa");
+    expect(ui).toContain("O Discord só abre quando a rota certa estiver confirmada");
   });
 
   it("usa uma fila unica para operacoes concorrentes do WireSock", () => {
