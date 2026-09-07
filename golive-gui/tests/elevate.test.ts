@@ -7,9 +7,12 @@ describe("elevacao do GoLiveBypass.exe", () => {
   it("pede administrador no manifesto do exe", () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
     expect(pkg.build.win.requestedExecutionLevel).toBe("requireAdministrator");
-    // O arquivo que a pessoa clica e o stub NSIS portable, nao o Electron de dentro.
-    // Sem isto o wrapper sobe asInvoker e o UAC nao aparece no duplo clique.
-    expect(pkg.build.portable.requestExecutionLevel).toBe("admin");
+    // O instalador NSIS (perMachine) pede admin; o exe em C:\GoLiveBypass herda o manifesto.
+    expect(pkg.build.win.target).toBe("nsis");
+    expect(pkg.build.nsis.perMachine).toBe(true);
+    // FileDescription/comentario do atalho NSIS vem de package.json description;
+    // a frase longa virava o nome na barra de tarefas do Windows.
+    expect(pkg.description).toBe("GoLiveBypass");
   });
 
   it("relanca com UAC visivel antes do lock de instancia unica", () => {

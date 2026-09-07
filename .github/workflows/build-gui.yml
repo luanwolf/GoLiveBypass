@@ -33,7 +33,7 @@ jobs:
           node-version: 22
       - run: npm ci
         working-directory: golive-gui
-      # --publish always: gera o GoLiveBypass.exe + latest.yml e faz upload na release
+      # --publish always: gera o GoLiveBypass-Setup-*.exe + latest.yml e faz upload na release
       # (o GH_TOKEN do workflow vira o GH_TOKEN que o electron-builder usa).
       # No canal beta o override -c.publish.releaseType=prerelease publica a release
       # como PRERELEASE — nunca vira "latest" (regra §9).

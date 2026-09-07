@@ -250,10 +250,9 @@ function isPermissionError(e: any) {
 }
 
 /**
- * O app mora na bandeja / barra de menus. Windows usa HKCU\...\Run direto
- * (ver electron/startup.ts) porque o app e distribuido em portable e o
- * setLoginItemSettings do Electron delega ao instalador Squirrel/MSI, que
- * nao existe. No Mac usamos wasOpenedAtLogin porque o openAsHidden morreu
+ * O app mora na bandeja / barra de menus. Windows usa tarefa ONLOGON
+ * (ver electron/startup.ts) porque o exe pede administrador e HKCU\...\Run
+ * nao eleva. No Mac usamos wasOpenedAtLogin porque o openAsHidden morreu
  * no macOS 13 :( Nos dois casos sobe so o icone, sem abrir janela no login.
  */
 import { getStartup, setStartup, launchedHidden, syncStartupEntry } from "./startup";
@@ -654,10 +653,10 @@ if (windowsElevation !== "ok") {
 
     // No login (start com --hidden / wasOpenedAtLogin) sobe so a bandeja; a janela aparece no clique.
     if (!launchedHidden()) createWindow();
-    // Autostart: se a entrada de Run existe, garante que aponta para o exe ATUAL.
-    // O valor congela o caminho de quando o toggle foi ativado; portable renomeado/
-    // movido = boot falha em silencio com o checkbox marcado. Reescrever a cada
-    // abertura cura (reg add idempotente). (issue: "nao abre mesmo ativando")
+    // Autostart: se a tarefa/entrada existe, garante que aponta para o exe ATUAL.
+    // O valor congela o caminho de quando o toggle foi ativado; exe movido =
+    // boot falha em silencio com o checkbox marcado. Reescrever a cada
+    // abertura cura (schtasks /Change idempotente). (issue: "nao abre mesmo ativando")
     syncStartupEntry();
     // Boot: se o usuario deixou o bypass ativo na sessao passada (flag gravada na
     // ativacao, zerada so no deactivate explicito) e a injecao nao esta no disco

@@ -8,7 +8,7 @@ testar — inclui o que é obrigatório para o auto-update funcionar em cada SO.
 
 | SO | Mecanismo | Requisito |
 |----|-----------|-----------|
-| Windows | Updater **portable** próprio (`electron/updater.ts`): consulta a release, baixa o `.exe` novo, substitui via `PORTABLE_EXECUTABLE_FILE` e reabre | Nenhum (não precisa assinar) |
+| Windows | `electron-updater` (NSIS em `C:\GoLiveBypass`) | Nenhum (não precisa assinar) |
 | Linux | `electron-updater` nativo (AppImageUpdater) com **download diferencial** (blockMap) | Nenhum |
 | macOS | **desligado por enquanto** — ver abaixo | **Obrigatório: app assinado** (sem assinatura o download falha) |
 
@@ -17,7 +17,7 @@ O `publish` está configurado em `golive-gui/package.json`:
 ```json
 "publish": {
   "provider": "github",
-  "owner": "bezumiya",
+  "owner": "luanwolf",
   "repo": "GoLiveBypass",
   "releaseType": "release"
 }
@@ -29,7 +29,7 @@ O `publish` está configurado em `golive-gui/package.json`:
 2. Dispare o workflow **build-gui** (manual, `workflow_dispatch`) informando a tag
 3. O CI roda `npm run publish:win|linux|mac` — o `electron-builder --publish always`
    gera e publica na release:
-   - `GoLiveBypass.exe` + `latest.yml` (Windows)
+   - `GoLiveBypass-Setup-*.exe` + `latest.yml` (Windows)
    - `GoLiveBypass.AppImage` + `latest-linux.yml` (Linux)
    - `GoLiveBypass.dmg` + `GoLiveBypass.zip` + `latest-mac.yml` (macOS)
 
@@ -72,18 +72,16 @@ Para macOS:
 Sem os secrets, o CI builda sem assinatura e o auto-update do macOS fica
 desabilitado (o app funciona, mas não atualiza sozinho).
 
-> No Windows o portable **não exige assinatura** (o updater próprio substitui o
-> exe sem checagem de assinatura). Se quiser evitar o SmartScreen, assine com um
-> certificado de código (pode usar o mesmo `CSC_LINK` do Mac).
+> No Windows o NSIS **não exige assinatura** para o `electron-updater` aplicar.
+> Se quiser evitar o SmartScreen, assine com um certificado de código (pode usar
+> o mesmo `CSC_LINK` do Mac).
 
 ## Notificação ao usuário
 
 O fluxo de atualização avisa antes de instalar:
 
-- **Mac/Linux**: o download corre em background; ao terminar, aparece um diálogo
-  *"GoLiveBypass X.Y.Z foi baixada — Reiniciar agora?"* — só instala com o OK
-- **Windows portable**: ao detectar a versão nova, pergunta *"Atualizar agora?"*
-  antes de baixar/substituir
+- **Windows e Linux**: o download corre em background; ao terminar, aparece um diálogo
+  *"Atualização disponível"* — só instala com o OK
 
 ## Teste E2E (procedimento validado)
 
@@ -117,27 +115,25 @@ substituído (tamanho muda) → reexecuta.
 > ⚠️ O AppImageLauncher (binfmt) intercepta AppImages e quebra o teste. A
 > extração com `--appimage-extract` + env `APPIMAGE` contorna isso.
 
-### Windows (portable) — procedimento
+### Windows (NSIS) — procedimento
 
 ```bash
 # 1. Build da versão "nova" no fork
-sed -i 's/"owner": "bezumiya"/"owner": "SEU_FORK"/' package.json
+sed -i 's/"owner": "luanwolf"/"owner": "SEU_FORK"/' package.json
 sed -i 's/"version": "1.0.0"/"version": "1.1.5"/' package.json
 npm run build:win          # ou publish:win com GH_TOKEN
 
-# 2. Publica a release com GoLiveBypass.exe (+ latest.yml)
+# 2. Publica a release com GoLiveBypass-Setup-*.exe (+ latest.yml)
 gh release create v1.1.5-test --repo SEU_FORK/GoLiveBypass \
-  dist-app/GoLiveBypass.exe dist-app/latest.yml
+  dist-app/GoLiveBypass-Setup-1.1.5.exe dist-app/latest.yml
 
-# 3. Roda o exe antigo (1.0.0); ele detecta a 1.1.5, pergunta "Atualizar agora?",
-#    baixa, substitui o exe em uso (com retry) e reabre a versão nova
+# 3. Instala a versão antiga em C:\GoLiveBypass; ela detecta a 1.1.5, baixa
+#    em background, pergunta e aplica in-place (quitAndInstall)
 ```
 
 **Pontos de atenção no Windows**:
-- O updater usa `PORTABLE_EXECUTABLE_FILE` (variável do electron-builder
-  portable) para achar o exe em uso — sem ela o update é pulado
-- A substituição tem retry (até 10 tentativas, 1s entre elas) porque o Windows
-  segura o exe em uso por um instante após o fechamento
+- O app precisa estar instalado (NSIS). Dev (`npm run dev`) não consulta o GitHub
+- Sem `latest.yml` na release o electron-updater detecta a versão e falha o download
 - Teste também o fluxo "Depois": o app continua rodando e a checagem periódica
   (a cada 4h) oferece de novo
 

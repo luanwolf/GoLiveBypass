@@ -1,14 +1,11 @@
 /**
  * O WireSock, o serviço e os prompts de instalação no Windows exigem admin.
- * requestedExecutionLevel no exe interno cobre o win-unpacked; o stub portable
- * (o .exe que a pessoa clica) precisa de portable.requestExecutionLevel=admin,
- * senao o NSIS sobe asInvoker e o UAC nao aparece. Este helper cobre o caso
- * asInvoker (dev, stub velho) relancando com RunAs.
+ * requestedExecutionLevel no exe instalado cobre C:\GoLiveBypass\GoLiveBypass.exe.
+ * Este helper cobre o caso asInvoker (dev, exe velho) relancando com RunAs.
  *
  * O prompt UAC nao pode nascer de um processo hidden: o Windows recusa ou
  * engole o dialogo, o app sai e parece que "nao abriu".
  */
-import fs from "fs";
 import { execFileSync, spawnSync } from "child_process";
 
 export function isWindowsElevated(): boolean {
@@ -26,10 +23,6 @@ function psQuote(value: string): string {
 }
 
 function elevationTarget(): { exe: string; args: string[] } {
-  const portable = process.env.PORTABLE_EXECUTABLE_FILE;
-  if (portable && fs.existsSync(portable)) {
-    return { exe: portable, args: process.argv.slice(1).filter((arg) => arg === "--hidden") };
-  }
   const args = process.argv.slice(process.defaultApp ? 2 : 1);
   return { exe: process.execPath, args };
 }

@@ -86,23 +86,32 @@ describe("escolherRelease (candidata de update por canal)", () => {
 
 describe("wiring do canal no updater e no workflow", () => {
   it("consulta o fork luanwolf e liga o updater no boot", () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    expect(pkg.build.publish.owner).toBe("luanwolf");
+    expect(pkg.build.publish.repo).toBe("GoLiveBypass");
+    expect(pkg.build.win.target).toBe("nsis");
+    expect(pkg.build.nsis.include).toBe("build/installer.nsh");
+    expect(pkg.build.nsis.artifactName).toContain("Setup");
+    expect(pkg.build.nsis.installerHeader).toBe("build/installerHeader.bmp");
+    expect(pkg.build.nsis.installerSidebar).toBe("build/installerSidebar.bmp");
+    expect(fs.existsSync(path.resolve(process.cwd(), "build/installerHeader.bmp"))).toBe(true);
+    expect(fs.existsSync(path.resolve(process.cwd(), "build/installerSidebar.bmp"))).toBe(true);
+
+    const nsh = fs.readFileSync(path.resolve(process.cwd(), "build/installer.nsh"), "utf8");
+    expect(nsh).toContain("C:\\GoLiveBypass");
+    expect(nsh).toContain('Caption "GoLiveBypass"');
+
     const updater = fs.readFileSync(path.resolve(process.cwd(), "electron/updater.ts"), "utf8");
-    expect(updater).toContain('const REPO = "luanwolf/GoLiveBypass"');
     expect(updater).not.toContain("bezumiya/GoLiveBypass");
-    const setup = updater.slice(
-      updater.indexOf("export function setupUpdater"),
-      updater.indexOf("export async function checkWindowsUpdate"),
-    );
-    expect(setup).not.toContain("nao consulta o GitHub original");
-    expect(setup).toContain("checkWindowsUpdate");
+    expect(updater).not.toContain("checkWindowsUpdate");
+    expect(updater).not.toContain("stagedPortablePath");
+    expect(updater).not.toContain("copyFileSync");
+    expect(updater).toContain("autoUpdater.checkForUpdates()");
+    expect(updater).toContain("allowPrerelease");
 
     const main = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
     expect(main).toContain("setupUpdater(");
     expect(main).toMatch(/export function readAutoUpdate\(\)[\s\S]*?return true;/);
-    expect(updater).toContain("stagedPortablePath");
-    expect(updater).toContain("copyFileSync");
-    expect(updater).toContain("process.pid");
-    expect(updater).not.toContain("attemptReplace");
     expect(updater).toContain('title: "Atualização disponível"');
     expect(updater).toContain("Baixar e instalar update agora? O app irá reiniciar durante o processo.");
     expect(updater).not.toContain("Tem versão nova");
@@ -126,10 +135,8 @@ describe("wiring do canal no updater e no workflow", () => {
     // nao tem esse problema; main.ts ja usa a versao async em outro lugar (linha ~1162).
     const updater = fs.readFileSync(path.resolve(process.cwd(), "electron/updater.ts"), "utf8");
     expect(updater).not.toContain("dialog.showMessageBoxSync(");
-    // Confirma que os 4 usos anteriores viraram await showMessageBox(...) de verdade,
-    // nao so que a string sumiu por outro motivo.
     const usos = updater.match(/await dialog\.showMessageBox\(/g) ?? [];
-    expect(usos.length).toBeGreaterThanOrEqual(4);
+    expect(usos.length).toBeGreaterThanOrEqual(1);
   });
 
   it("nao consulta releases durante npm run dev", () => {

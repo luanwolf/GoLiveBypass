@@ -1,15 +1,6 @@
 /**
  * Autostart multiplataforma.
  *
- * O Electron prove app.setLoginItemSettings() (e o getLoginItemSettings()), mas
- * em build portable do Windows ele NAO funciona: o metodo delega ao instalador
- * Squirrel/MSI para criar a entrada de Run, e o portable nao tem instalador. O
- * usuario clica "Iniciar com Windows", o app chama setLoginItemSettings({...}),
- * o metodo retorna sucesso -- e nada acontece. O checkbox no renderer continua
- * desmarcado na proxima abertura porque o getLoginItemSettings tambem le do
- * instalador (que nao escreveu nada), e nao tem como a interface saber que a
- * chamada "funcionou" sem efeito.
- *
  * Workaround: no Windows o exe pede administrador, e HKCU\\...\\Run nao inicia
  * programas que exigem UAC. A tarefa ONLOGON /RL HIGHEST sobe elevado sem
  * prompt extra. A entrada antiga de Run e apagada na migracao.
@@ -45,23 +36,13 @@ export interface StartupResult {
  * A variavel de ambiente `APPIMAGE` (definida pelo runtime do AppImage) guarda o
  * caminho real do .AppImage no disco, e e isso que o .desktop precisa usar.
  *
- * No Windows o portable NAO usa o process.execPath (veja realExecPath): ele aponta
- * para a extracao temporaria. No macOS, o app.asar/Contents/MacOS/GoLiveBypass.
+ * No Windows o NSIS instala em C:\GoLiveBypass e process.execPath e o exe
+ * permanente.
  */
 function realExecPath(): string {
   if (IS_LINUX) {
     const appImage = process.env.APPIMAGE;
     if (appImage && fs.existsSync(appImage)) return appImage;
-  }
-  // O portable do Windows se auto-extrai num dir %TEMP% aleatorio a CADA execucao:
-  // o process.execPath dentro do app e o exe EXTRAIDO. Gravar a Run key com ele
-  // morria quando o temp era limpo (Storage Sense/CCleaner) e apontava o boot para
-  // uma copia velha depois de update — o "nao abre mesmo ativando" dos usuarios do
-  // portable. O PORTABLE_EXECUTABLE_FILE e o exe ORIGINAL que o usuario rodou (o
-  // updater ja usa a mesma variavel para se substituir).
-  if (IS_WINDOWS && process.env.PORTABLE_EXECUTABLE_FILE &&
-      fs.existsSync(process.env.PORTABLE_EXECUTABLE_FILE)) {
-    return process.env.PORTABLE_EXECUTABLE_FILE;
   }
   return process.execPath;
 }
@@ -211,13 +192,9 @@ export function getStartup(): boolean {
 /**
  * Reescreve a entrada de Run com o caminho ATUAL do exe, se a entrada existir.
  *
- * O valor da Run key congela o caminho de quando o usuario ativou o toggle — e o
- * portable muda de lugar o tempo todo (baixa na Downloads, move para o Desktop,
- * renomeia, o updater substitui). O Windows falha em SILENCIO quando o caminho do
- * valor nao existe mais: o app simplesmente nao abre no boot, com o checkbox
- * marcado — getStartup() so confere se a ENTRADA existe, nao se o caminho dela e
- * valido. Rodar isto a cada abertura do app cura todos esses casos (um reg add
- * idempotente, custo desprezivel) e devolve a flag --hidden se ela se perdeu.
+ * O valor da tarefa congela o caminho de quando o usuario ativou o toggle. Rodar
+ * isto a cada abertura do app cura exe movido (custo desprezivel) e devolve a
+ * flag --hidden se ela se perdeu.
  */
 export function syncStartupEntry(): void {
   if (!IS_WINDOWS) return;

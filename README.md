@@ -33,7 +33,7 @@ Você não precisa usar todas as opções. Escolha uma delas:
 Criamos um aplicativo completo que faz todo o trabalho de forma **100% automática**, sem precisar abrir terminais, usar scripts ou instalar modificações complexas como o Equicord.
 
 <p align="center">
-  <img src="golive-gui/src/assets/gui-v2.png" alt="Interface do GoLiveBypass 2.0.0 com ProtonVPN otimizado, status da rota e botão Ativar Bypass" width="520">
+  <img src="golive-gui/src/assets/gui-v2.png" alt="Interface do GoLiveBypass com ProtonVPN, status da rota e botão Ligar o bypass" width="520">
 </p>
 
 ### O que mudou na 2.0.0
@@ -57,15 +57,17 @@ Criamos um aplicativo completo que faz todo o trabalho de forma **100% automáti
 O túnel cobre o processo do Discord inteiro — gateway, login, voz, vídeo e anexos — evitando a divergência de IP que motivou a migração. A mídia não é roteada por um proxy SOCKS separado.
 
 ### Como Baixar e Instalar
-1. Vá na **[última release](https://github.com/bezumiya/GoLiveBypass/releases/latest)** aqui no GitHub.
+1. Vá na **[última release](https://github.com/luanwolf/GoLiveBypass/releases/latest)** aqui no GitHub.
 2. Baixe o arquivo da sua plataforma, na lista no fim da página:
-   - **Windows:** `GoLiveBypass-*.exe` (portátil, roda direto sem instalar)
+   - **Windows:** `GoLiveBypass-Setup-*.exe` — instala em `C:\GoLiveBypass`, com atalho no Menu Iniciar e na Área de trabalho. Daí em diante o app se atualiza sozinho.
    - **Linux:** `GoLiveBypass-*.AppImage`
-3. Abra o arquivo que você acabou de baixar.
+3. No Windows, abra o Setup, aceite o UAC e conclua a instalação. No Linux, abra o AppImage.
 
 O programa **não é assinado**. O sistema avisa na primeira vez. Na 2.0.0, a GUI é a única variante disponível; os instaladores CLI permanecem pausados.
 
 **Windows (SmartScreen):** **Mais informações → Executar assim mesmo**.
+
+Se você ainda usa o exe portátil (`GoLiveBypass-2.1.x.exe`), instale o Setup **uma vez** e pode apagar os `.exe` velhos da Área de trabalho e do Downloads. Para remover o app: Configurações do Windows → Aplicativos, ou o atalho Desinstalar.
 
 #### macOS
 
@@ -74,22 +76,20 @@ o suporte será retomado quando houver um túnel WireGuard por aplicativo confi�
 
 ### Como Usar
 1. O aplicativo vai detectar o seu Discord automaticamente.
-2. Clique em **"Ativar Bypass"**.
-3. O Discord vai reiniciar automaticamente com o Go Live desbloqueado. Ao desativar, ele também reinicia para sair do túnel.
+2. Clique em **"Ligar o bypass"**.
+3. O Discord vai reiniciar automaticamente com o Go Live desbloqueado. Ao desligar, ele também reinicia para sair do túnel.
 4. Pode fechar a janela sem medo: o app fica na bandeja. Use **Sair** no ícone para encerrar o túnel.
-5. Se quiser que ele já abra com o PC, marque **"Iniciar com o sistema"**.
+5. Se quiser que ele já abra com o PC, marque **"Iniciar com o Windows?"** (no Linux: **"Iniciar com o sistema?"**).
 
 > **Dica Importante:** Se a sua transmissão ficar com a tela preta ou não carregar de primeira, recarregue o Discord com **Ctrl + R**.
 
 
 ## 🐧 Interface Gráfica para Linux (AppImage)
 
-A mesma interface gráfica do Windows, **agora para Linux**, empacotada como **AppImage** (roda em qualquer distro: Debian, Ubuntu, Fedora, Arch e derivadas).
-
-Assim como a versão Windows, ela é **portátil** e usa o namespace WireGuard diretamente. O standalone CLI continua separado e indisponível na 2.0.0.
+A mesma interface gráfica do Windows, empacotada como **AppImage** (roda em qualquer distro: Debian, Ubuntu, Fedora, Arch e derivadas). No Windows a GUI é o instalador NSIS; no Linux o AppImage continua sem instalar. O standalone CLI segue indisponível na 2.0.0.
 
 ### Como Baixar e Instalar
-1. Vá na **[última release](https://github.com/bezumiya/GoLiveBypass/releases/latest)**.
+1. Vá na **[última release](https://github.com/luanwolf/GoLiveBypass/releases/latest)**.
 2. Baixe o **`GoLiveBypass-*.AppImage`**.
 3. Dê permissão de execução e abra:
 
@@ -105,7 +105,7 @@ chmod +x GoLiveBypass-*.AppImage
 
 ### Como Usar
 1. O aplicativo detecta o seu Discord automaticamente (nativo ou flatpak).
-2. Clique em **"Ativar Bypass"** — o Discord fecha, o bypass entra e ele reabre.
+2. Clique em **"Ligar o bypass"** — o Discord fecha, o bypass entra e ele reabre.
 3. Fechar a janela só a esconde na bandeja (o app continua vivo); para reverter o bypass de verdade, use o **Sair** no menu do ícone da bandeja.
 
 > **Nota:** se o seu Discord é flatpak do sistema, a primeira ativação pode pedir sua senha (via `pkexec`) para liberar a pasta do bypass para o sandbox.
@@ -871,10 +871,9 @@ standalone/
 ├── GoLiveBypass-Standalone.ps1    # Windows: instala direto no Discord
 └── golivebypass-standalone.sh     # Linux: o mesmo
 
-golive-gui/                        # app Electron de um clique (Windows, macOS e Linux AppImage): injeta o
-                                   #   standalone, mora na bandeja / barra de menus e reverte
-                                   #   ao sair pelo ícone de lá. scripts/sync-bypass.mjs
-                                   #   mantém a cópia embutida idêntica ao standalone
+golive-gui/                        # app Electron (Windows: instalador NSIS em C:\GoLiveBypass;
+                                   #   Linux: AppImage). Túnel WireGuard por aplicativo, mora
+                                   #   na bandeja. No Windows o electron-updater lê latest.yml.
 
 tests/
 └── test-posix.sh                  # suíte de portabilidade: roda os instaladores em containers

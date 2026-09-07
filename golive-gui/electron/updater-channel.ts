@@ -68,13 +68,8 @@ export function compararVersoes(a: string, b: string): number {
   return 0;
 }
 
-// Escolhe a candidata de update: a release de MAIOR versao com exe anexado,
-// respeitando o canal (beta inclui prereleases; stable so releases "de verdade").
-// Devolve null quando a maior candidata nao e mais nova que a versao atual —
-// NUNCA faz downgrade: quem esta na beta.7 com o canal stable so recebe update
-// quando sair uma stable >= 1.1.12 (que e maior que qualquer beta do mesmo
-// triplo). A Linux (electron-updater) nao passa por aqui: la o canal e nativo
-// (allowPrerelease + beta.yml), com semver do proprio electron-updater.
+// A Linux e o Windows NSIS usam electron-updater (allowPrerelease + beta.yml).
+// Estas funcoes documentam a regra de semver do canal (nunca downgrade) nos testes.
 export function escolherRelease(
   releases: ReleaseCandidata[],
   atual: string,

@@ -1,230 +1,16 @@
 // Atualizacao automatica via GitHub Releases — sem servidor proprio.
 //
-// Windows: o target e portable, e o electron-updater nao suporta portable (so NSIS).
-// Entao o update do Windows e proprio: consulta as releases na API do GitHub (canal
-// estavel so ve releases "de verdade"; o canal beta dos testadores inclui as
-// prereleases — regra de escolha no updater-channel.ts), baixa o exe novo ao lado
-// do stub atual (PORTABLE_EXECUTABLE_FILE) e reabre depois que o PID velho some.
-// Renomear o stub em uso falhava com EBUSY; o .old tambem nao serve de sonda,
-// porque a imagem em execucao e o Electron extraido em %TEMP%.
-//
-// Mac e Linux: o autoUpdater do electron-updater cuida (dmg/zip assinado e AppImage).
-// O canal beta do Linux e nativo do electron-updater: allowPrerelease faz ele ler o
-// canal beta.yml — que o electron-builder publica sozinho para versao com sufixo
-// de prerelease — em vez do latest.yml.
+// Windows (NSIS em C:\GoLiveBypass) e Linux (AppImage): electron-updater le
+// latest.yml / beta.yml publicados pelo electron-builder na release. Canal beta
+// = allowPrerelease. macOS fica de fora ate o app ser assinado.
 
 import { app, dialog, BrowserWindow } from "electron";
-import { createWriteStream, readFileSync, copyFileSync, unlinkSync } from "fs";
-import { createHash } from "crypto";
-import { rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import { autoUpdater } from "electron-updater";
-import { request } from "https";
-import { cleanupOldExe, spawnWindowsUpdateHelper, stagedPortablePath } from "./updater-replace";
-import { escolherRelease, type Canal, type ReleaseCandidata } from "./updater-channel";
+import { type Canal } from "./updater-channel";
 
-const REPO = "luanwolf/GoLiveBypass";
-// O artifactName leva a versao (GoLiveBypass-1.1.5.exe): o AppImageLauncher e
-// outros integradores nao sobrescrevem o arquivo quando o nome muda por versao.
-const EXE_PREFIX = "GoLiveBypass-";
-const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // re-checa a cada 4h
-const RETRY_COUNT = 10; // antivirus costuma segurar o exe novo/o alvo por alguns segundos
-const RETRY_DELAY_MS = 1000;
+const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
-let lastCheckAt = 0;
-let checking = false;
 let updateReady = false;
-
-// ------------------------------------------------------------------ GitHub API
-
-// Lista as releases recentes (20 dao e sobram: a escolha e por VERSAO, nao por
-// ordem). A API publica nao devolve drafts; devolve prereleases — que o canal
-// estavel filtra e o canal beta consome (regras no updater-channel.ts).
-function githubReleases(): Promise<ReleaseCandidata[]> {
-  return new Promise((resolve) => {
-    const req = request(
-      {
-        host: "api.github.com",
-        path: `/repos/${REPO}/releases?per_page=20`,
-        method: "GET",
-        headers: { "User-Agent": "GoLiveBypass", Accept: "application/vnd.github+json" },
-      },
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.resume();
-          return resolve([]);
-        }
-        let body = "";
-        res.setEncoding("utf8");
-        res.on("data", (c) => {
-          body += c;
-          if (body.length > 2_000_000) req.destroy();
-        });
-        res.on("end", () => {
-          try {
-            const data = JSON.parse(body) as Array<Record<string, unknown>>;
-            const releases: ReleaseCandidata[] = [];
-            for (const item of data) {
-              if (item.draft === true) continue;
-              const assets = (item.assets || []) as Array<{
-                name: string;
-                browser_download_url?: string;
-                digest?: string;
-              }>;
-              const asset = assets.find(
-                (a) => a.name.startsWith(EXE_PREFIX) && a.name.endsWith(".exe"),
-              );
-              if (!asset || !asset.browser_download_url) continue;
-              releases.push({
-                tag: String(item.tag_name),
-                url: asset.browser_download_url,
-                digest: typeof asset.digest === "string" ? asset.digest : null,
-                prerelease: item.prerelease === true,
-              });
-            }
-            resolve(releases);
-          } catch {
-            resolve([]);
-          }
-        });
-      },
-    );
-    req.on("error", () => resolve([]));
-    req.setTimeout(15_000, () => req.destroy());
-    req.end();
-  });
-}
-
-// O browser_download_url do GitHub sempre responde 302 para release-assets.githubusercontent.com,
-// e o request do Node nao segue redirecionamento sozinho. Sem isto o download do Windows falhava
-// em toda tentativa: o app achava a versao nova e nunca conseguia baixar.
-const MAX_REDIRECTS = 5;
-
-function downloadFile(url: string, dest: string, hops = MAX_REDIRECTS): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // So https: um redirecionamento para http rebaixaria a conexao em silencio, e o que vem por
-    // ela substitui o executavel em uso.
-    if (!url.startsWith("https://")) {
-      return reject(new Error("recusando destino que nao e https: " + url));
-    }
-
-    const req = request(url, { headers: { "User-Agent": "GoLiveBypass" } }, (res) => {
-      const { statusCode, headers } = res;
-
-      if (statusCode !== undefined && statusCode >= 300 && statusCode < 400 && headers.location) {
-        res.resume();
-        if (hops <= 0) return reject(new Error("redirecionamentos demais"));
-        return downloadFile(new URL(headers.location, url).toString(), dest, hops - 1).then(resolve, reject);
-      }
-
-      if (statusCode !== 200) {
-        res.resume();
-        return reject(new Error("download falhou: HTTP " + statusCode));
-      }
-
-      const out = createWriteStream(dest);
-      res.pipe(out);
-      out.on("finish", () => {
-        out.close();
-        resolve();
-      });
-      out.on("error", reject);
-    });
-    req.on("error", reject);
-    req.end();
-  });
-}
-
-// A API do GitHub devolve o digest do anexo na mesma resposta autenticada por TLS de onde sai a
-// URL. Conferir aqui deixa o Windows no mesmo nivel de Linux e macOS, que ganham a checagem de
-// graca pelo electron-updater. Sem isto, um arquivo truncado no meio do caminho viraria o
-// executavel em uso.
-function digestMatches(file: string, digest: string | null): boolean {
-  if (digest === null) {
-    console.warn("[updater] anexo sem digest na API; nao vou instalar sem conferir.");
-    return false;
-  }
-
-  const [algo, esperado] = digest.split(":");
-  if (algo === undefined || esperado === undefined) return false;
-
-  try {
-    const obtido = createHash(algo).update(readFileSync(file)).digest("hex");
-    if (obtido === esperado) return true;
-
-    console.error(`[updater] ${algo} nao confere: esperado ${esperado}, obtido ${obtido}`);
-    return false;
-  } catch (error) {
-    console.error("[updater] falhei ao conferir o digest:", error);
-    return false;
-  }
-}
-
-// ------------------------------------------------------------------ Windows portable
-
-function portableExePath(): string | null {
-  // O electron-builder portable define esta variavel com o caminho do exe em uso.
-  const current = process.env.PORTABLE_EXECUTABLE_FILE;
-  return current && current.trim() !== "" ? current : null;
-}
-
-function tryReplace(target: string, downloaded: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const attempt = (tries: number) => {
-      try {
-        copyFileSync(downloaded, target);
-        try {
-          unlinkSync(downloaded);
-        } catch {}
-        resolve(true);
-      } catch (error) {
-        if (tries <= 0) {
-          console.error("[updater] copia do exe novo falhou:", error);
-          return resolve(false);
-        }
-        setTimeout(() => attempt(tries - 1), RETRY_DELAY_MS);
-      }
-    };
-    attempt(RETRY_COUNT);
-  });
-}
-
-async function updateWindowsPortable(url: string, digest: string | null, version: string): Promise<boolean> {
-  const current = portableExePath();
-  if (current === null) {
-    console.warn("[updater] PORTABLE_EXECUTABLE_FILE nao definido; pulando update.");
-    return false;
-  }
-
-  const downloaded = join(tmpdir(), "GoLiveBypass-update.exe");
-  try {
-    await downloadFile(url, downloaded);
-  } catch (error) {
-    console.error("[updater] download falhou:", error);
-    return false;
-  }
-
-  if (!digestMatches(downloaded, digest)) {
-    await rm(downloaded, { force: true }).catch(() => {});
-    return false;
-  }
-
-  const dest = stagedPortablePath(current, version);
-  if (!(await tryReplace(dest, downloaded))) {
-    console.error("[updater] nao consegui gravar o exe novo.", { dest });
-    return false;
-  }
-
-  markQuittingForUpdate();
-  if (!spawnWindowsUpdateHelper(dest, current, process.pid)) {
-    // Sem helper o exe novo ja esta no disco, mas abrir agora bate no lock
-    // de instancia unica e some. Deixa o dialogo de falha pedir download manual.
-    console.error("[updater] helper de relanco nao subiu.", { dest });
-    return false;
-  }
-  return true;
-}
 
 // O main process consulta esta flag no before-quit: quando o auto-update esta
 // aplicando, o quit nao pode ser segurado (senao o app antigo fica vivo e o
@@ -237,17 +23,14 @@ export function isQuittingForUpdate() {
   return quittingForUpdate;
 }
 
-// ------------------------------------------------------------------ API publica
-
 export function setupUpdater(
   getMainWindow: () => BrowserWindow | null,
   isAutoUpdateEnabled: () => boolean = () => true,
   canalAtual: () => Canal = () => "stable",
 ) {
-  // Em desenvolvimento nao existe um AppImage/portable que possa receber update. Forcar
+  // Em desenvolvimento nao existe um AppImage/NSIS que possa receber update. Forcar
   // electron-updater a usar dev-app-update.yml fazia o npm run dev consultar uma release
-  // com a versao local (ex.: v1.1.12-dev.8) e registrar um 404 ruidoso no terminal.
-  // Updates sao comportamento do aplicativo empacotado; o dev so valida a interface.
+  // com a versao local e registrar um 404 ruidoso no terminal.
   const isDev = !app.isPackaged;
   if (isDev) {
     console.log("[updater] desenvolvimento: checagem de atualizacoes desativada.");
@@ -264,129 +47,53 @@ export function setupUpdater(
     return;
   }
 
-  // Linux: updater nativo do AppImage, com download diferencial.
-  if (process.platform !== "win32") {
-    autoUpdater.autoDownload = true;
-    autoUpdater.logger = console;
+  autoUpdater.autoDownload = true;
+  autoUpdater.logger = console;
 
-    // Canal beta (Linux): allowPrerelease faz o electron-updater ler o canal
-    // beta.yml — que o electron-builder publica sozinho para versao com sufixo
-    // de prerelease — em vez do latest.yml. Lido no boot: o electron-updater
-    // checa uma vez por sessao, entao o toggle vale no proximo reinicio do app.
-    // Desligar nao faz downgrade: a stable mais nova substitui a beta pelo
-    // semver do proprio electron-updater (1.1.12 > 1.1.12-beta.7).
+  const aplicarCanal = () => {
+    // Canal beta: allowPrerelease faz o electron-updater ler beta.yml — que o
+    // electron-builder publica sozinho para versao com sufixo de prerelease —
+    // em vez do latest.yml. Reaplicado a cada checagem de 4h para o toggle
+    // valer sem reiniciar. Desligar nao faz downgrade: a stable mais nova
+    // substitui a beta pelo semver (1.1.12 > 1.1.12-beta.7).
     autoUpdater.allowPrerelease = canalAtual() === "beta";
+  };
+  aplicarCanal();
 
-    // O download corre sozinho em background; ao terminar, avisa o usuario e
-    // so instala com o OK dele — atualizar sem avisar derruba o app na hora.
-    autoUpdater.on("update-downloaded", async (info) => {
-      if (!isAutoUpdateEnabled()) return;
-      updateReady = true;
-      const win = getMainWindow();
-      // showMessageBox (assincrono), nao showMessageBoxSync: o sincrono bloqueia a
-      // thread JS do processo principal ate a pessoa clicar um botao -- inclusive o
-      // setInterval do watchdog do Tor (ver golive-gui/electron/main.ts), que fica
-      // sem checar o daemon por todo o tempo que o dialogo ficar aberto sem resposta.
-      // O restante do arquivo ja usa a versao async (main.ts:1162); so este trecho
-      // ficara para tras usando a sincrona.
-      const choice = win
-        ? (await dialog.showMessageBox(win, {
-            type: "info",
-            title: "Atualização disponível",
-            message: `O GoLiveBypass ${info.version} já baixou.`,
-            detail: "Baixar e instalar update agora? O app irá reiniciar durante o processo.",
-            buttons: ["Reiniciar agora", "Depois"],
-            defaultId: 0,
-            cancelId: 1,
-          })).response
-        : 0;
-
-      // Em dev o quitAndInstall nao funciona: nao ha runtime AppImage montado,
-      // e o processo e gerenciado pelo vite — o arquivo ate e substituido, mas
-      // o app nao reinicia (e o arquivo some). O dev serve para verificar a
-      // notificacao; a instalacao real so vale no app empacotado.
-      if (choice === 0 && !isDev) {
-        markQuittingForUpdate();
-        autoUpdater.quitAndInstall();
-      }
-    });
-
-    if (isAutoUpdateEnabled()) {
-      autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-    }
-    return;
-  }
-
-  // Windows portable: checagem periodica em background.
-  // Sobra de um update anterior: o ".old" de ontem nao roda mais, entao agora e a
-  // hora de apagar (no momento da troca ele ainda estava em execucao).
-  const atual = portableExePath();
-  if (atual !== null) cleanupOldExe(atual);
-  // O canal vai como GETTER: a checagem de 4h le o valor VIVO — ligar o canal beta
-  // vale na proxima checagem, sem reiniciar o app.
-  setInterval(() => void checkWindowsUpdate(getMainWindow, isAutoUpdateEnabled, canalAtual), CHECK_INTERVAL_MS);
-  void checkWindowsUpdate(getMainWindow, isAutoUpdateEnabled, canalAtual);
-}
-
-export async function checkWindowsUpdate(
-  getMainWindow: () => BrowserWindow | null,
-  isAutoUpdateEnabled: () => boolean = () => true,
-  canalAtual: () => Canal = () => "stable",
-) {
-  if (checking || updateReady) return;
-  if (!isAutoUpdateEnabled()) return;
-  if (Date.now() - lastCheckAt < 60_000) return; // no minimo 1min entre checagens
-  checking = true;
-  lastCheckAt = Date.now();
-
-  try {
-    const releases = await githubReleases();
-    const escolhida = escolherRelease(releases, app.getVersion(), canalAtual());
-    if (escolhida === null) return;
-
-    const latest = escolhida.tag.replace(/^v/, "");
-    const ehBeta = escolhida.prerelease;
+  // O download corre sozinho em background; ao terminar, avisa o usuario e
+  // so instala com o OK dele — atualizar sem avisar derruba o app na hora.
+  autoUpdater.on("update-downloaded", async (info) => {
+    if (!isAutoUpdateEnabled()) return;
+    if (updateReady) return;
+    updateReady = true;
     const win = getMainWindow();
-    // showMessageBox (assincrono): ver comentario equivalente no caminho Linux acima --
-    // a versao Sync bloqueia o watchdog do Tor (setInterval) enquanto o dialogo espera.
+    // showMessageBox (assincrono), nao showMessageBoxSync: o sincrono bloqueia a
+    // thread JS do processo principal ate a pessoa clicar um botao -- inclusive o
+    // setInterval do watchdog.
     const choice = win
       ? (await dialog.showMessageBox(win, {
           type: "info",
           title: "Atualização disponível",
-          message: `O GoLiveBypass ${latest}${ehBeta ? " (beta)" : ""} chegou.`,
-          detail: ehBeta
-            ? "Versão de teste do canal beta. Baixar e instalar update agora? O app irá reiniciar durante o processo."
-            : "Baixar e instalar update agora? O app irá reiniciar durante o processo.",
-          buttons: ["Atualizar agora", "Depois"],
+          message: `O GoLiveBypass ${info.version} já baixou.`,
+          detail: "Baixar e instalar update agora? O app irá reiniciar durante o processo.",
+          buttons: ["Reiniciar agora", "Depois"],
           defaultId: 0,
           cancelId: 1,
         })).response
       : 0;
 
-    if (choice !== 0) return;
-
-    const ok = await updateWindowsPortable(escolhida.url, escolhida.digest, latest);
-    if (ok) {
-      updateReady = true;
-      app.quit();
-    } else {
-      console.error("[updater] falha ao aplicar o update portable.");
-      // Sem isto o clique em "Atualizar agora" morre em silencio (issue #135): o
-      // popup fecha, nada acontece, e a pessoa nao sabe que a versao atual segue
-      // valendo nem o que fazer.
-      const win = getMainWindow();
-      const aviso = {
-        type: "warning" as const,
-        title: "A atualização não rolou",
-        message: `Não deu pra instalar o GoLiveBypass ${latest}.`,
-        detail:
-          "A versão atual continua no ar. Tenta de novo daqui a pouco, ou baixa a nova em github.com/luanwolf/GoLiveBypass/releases.",
-        buttons: ["OK"],
-      };
-      if (win) await dialog.showMessageBox(win, aviso);
-      else await dialog.showMessageBox(aviso);
+    if (choice === 0 && !isDev) {
+      markQuittingForUpdate();
+      autoUpdater.quitAndInstall();
     }
-  } finally {
-    checking = false;
-  }
+  });
+
+  const checar = () => {
+    if (!isAutoUpdateEnabled() || updateReady) return;
+    aplicarCanal();
+    autoUpdater.checkForUpdates().catch(() => {});
+  };
+
+  checar();
+  setInterval(checar, CHECK_INTERVAL_MS);
 }

@@ -4,6 +4,14 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.2.0] - 2026-09-07
+
+### Alterado
+- **Windows vira instalador NSIS** em `C:\GoLiveBypass`, com atalho no Menu Iniciar e na Área de trabalho. A atualização passa a ser in-place via `electron-updater` (o mesmo caminho do Linux), sem copiar exe ao lado do stub.
+- Instalador com o visual da GUI (fundo OLED, rosa do ícone, verde Go Live) e textos em português.
+- Nome na barra de tarefas do Windows: **GoLiveBypass** (antes saía a descrição longa).
+- Quem ainda está no exe portátil precisa **instalar o Setup uma vez**; depois o app se atualiza sozinho. O desinstalador remove a pasta e os atalhos.
+
 ## [2.1.9] - 2026-09-06
 
 ### Alterado
