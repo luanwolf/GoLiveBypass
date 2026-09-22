@@ -530,6 +530,23 @@ function resetWireSockNetworkLock(wsExe: string): boolean {
   }
 }
 
+/** Forca reset-network-lock elevado: o filtro WFP per-app sobrevive ao stop do
+ *  processo e nao aparece no probe HTTPS da GUI (que fica fora de AllowedApps).
+ *  Sem isto, falha de ativacao deixava o Discord sem rede ate o reboot. */
+function resetWireSockNetworkLockElevated(wsExe: string): boolean {
+  try {
+    const escaped = wsExe.replace(/'/g, "''");
+    execSync(`powershell.exe -NoProfile -Command "Start-Process -FilePath '${escaped}' -ArgumentList 'reset-network-lock' -Verb RunAs -WindowStyle Hidden -Wait"`, {
+      stdio: "ignore",
+      windowsHide: false,
+    });
+    return true;
+  } catch (err) {
+    logger.warn("wiresock", "reset-network-lock elevado falhou", { erro: detalheErro(err) });
+    return false;
+  }
+}
+
 function stopWireSockServiceElevated(name: string): boolean {
   try {
     const escaped = name.replace(/'/g, "''");
@@ -594,10 +611,9 @@ export async function stopWireSockService(): Promise<WireSockCleanupResult> {
   let processResidual = false;
   let residual: string[] = [];
 
-  // A segunda passagem e elevada mesmo que a primeira tenha aceitado o stop:
-  // e comum o SCM dizer STOP_PENDING enquanto um filho do servico ainda segura
-  // o filtro WFP. Nunca criamos uma nova instancia antes desta verificacao.
-  for (let pass = 0; pass < 2; pass++) {
+  // Tres passagens: a terceira e sempre elevada. O SCM pode dizer STOPPED enquanto
+  // o callout WFP ainda prende o Discord — e o probe da GUI nao ve isso (split tunnel).
+  for (let pass = 0; pass < 3; pass++) {
     attempts++;
     for (const name of WIRESOCK_SERVICE_NAMES) {
       if (!isServiceRunning(name)) continue;
@@ -615,7 +631,7 @@ export async function stopWireSockService(): Promise<WireSockCleanupResult> {
           if (!stopSolicitado) logger.warn("wiresock", "parada do servico recusada", { servico: name, erro: detalheErro(fallbackErr) || detalheErro(err), pass: pass + 1 });
         }
       }
-      if (pass === 1 && isServiceRunning(name)) stopWireSockServiceElevated(name);
+      if (pass >= 1 && isServiceRunning(name)) stopWireSockServiceElevated(name);
     }
     try {
       // /T e necessario: o servico pode deixar um cliente filho fora do PID que
@@ -624,22 +640,27 @@ export async function stopWireSockService(): Promise<WireSockCleanupResult> {
     } catch {
       killWireSockProcessElevated();
     }
-    for (let i = 0; i < 10 && isWireSockActive(); i++) await esperar(250);
+    for (let i = 0; i < 16 && isWireSockActive(); i++) await esperar(250);
     servicesResidual = WIRESOCK_SERVICE_NAMES.filter(isServiceRunning);
     processResidual = isWireSockProcessAlive();
     if (servicesResidual.length === 0 && !processResidual) break;
     logger.warn("wiresock", "residuo encontrado; repetindo limpeza elevada", { pass: pass + 1, servicesResidual, processResidual });
     const wsExe = findWireSockExe();
-    if (wsExe) resetNetworkLock = resetWireSockNetworkLock(wsExe) || resetNetworkLock;
+    if (wsExe) resetNetworkLock = resetWireSockNetworkLockElevated(wsExe) || resetWireSockNetworkLock(wsExe) || resetNetworkLock;
   }
   servicesResidual = WIRESOCK_SERVICE_NAMES.filter(isServiceRunning);
   processResidual = isWireSockProcessAlive();
   residual = servicesResidual.map((name) => `${name}: ainda em execucao`);
   if (processResidual) residual.push("wiresock-client.exe: ainda em execucao");
 
-  if (estavaAtivo || residual.length > 0) {
-    const wsExe = findWireSockExe();
-    if (wsExe) resetNetworkLock = resetWireSockNetworkLock(wsExe) || resetNetworkLock;
+  // Sempre tenta reset do lock. Elevado so quando havia tunel/residuo: o filtro
+  // WFP per-app pode ficar orfao e so afeta Discord.exe (browser continua ok).
+  const wsExe = findWireSockExe();
+  if (wsExe) {
+    resetNetworkLock = resetWireSockNetworkLock(wsExe) || resetNetworkLock;
+    if (estavaAtivo || residual.length > 0) {
+      resetNetworkLock = resetWireSockNetworkLockElevated(wsExe) || resetNetworkLock;
+    }
   }
   let dnsFlushed = false;
   const dnsCleared = limparDnsDoAdaptadorWireSock();
@@ -650,7 +671,7 @@ export async function stopWireSockService(): Promise<WireSockCleanupResult> {
     logger.warn("wiresock", "flushdns falhou", { erro: detalheErro(err) });
   }
   const stopped = !isWireSockActive() && residual.length === 0;
-  const resultado = { stopped, attempts, resetNetworkLock, dnsCleared, dnsFlushed, servicesResidual, processResidual, residual };
+  const resultado = { stopped, attempts, resetNetworkLock, dnsCleared, dnsFlushed, servicesResidual, processResidual, residual, wasActive: estavaAtivo };
   if (stopped) logger.info("wiresock", "servico, processo e lock verificados como parados", resultado);
   else logger.error("wiresock", "limpeza deixou residuo de WireSock", resultado);
   return resultado;

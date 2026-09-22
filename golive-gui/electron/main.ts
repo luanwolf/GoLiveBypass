@@ -618,29 +618,49 @@ if (windowsElevation !== "ok") {
     // (Windows/macOS), inclusive se uma beta anterior deixou autoRevive=false.
     updateSharedSettings({ routeMode: "wireguard" });
     logger.info("recuperacao", "sistema WireGuard ativo; configuracao legada removida", {});
-    // Um crash pode deixar serviço, filtro WFP, Discord e marcador vivos. O
-    // estado verificado é apenas de memória e nunca é herdado: refazemos a
-    // ativação inteira (fecha, restaura, mede baseline, prova e reabre).
-    if (IS_WINDOWS && sessaoAtiva()) {
-      if (isWireSockActive()) {
-        logger.warn("wiresock", "boot.residual.detectado", {});
+    // Boot WireSock: o quit limpo derruba o tunel; queda de energia/crash deixa
+    // marcador e/ou servico inconsistentes. Se o usuario tinha deixado o bypass
+    // ativo (autoInject) OU sobrou marcador de sessao (queda sem quit limpo),
+    // reativa sozinho — sem esperar o clique. Linux fica de fora: elevacao no
+    // login e pior que o clique.
+    if (IS_WINDOWS) {
+      const settingsBoot = readSharedSettings();
+      const querAtivo = settingsBoot.autoInject === true || sessaoAtiva();
+      if (querAtivo) {
+        if (settingsBoot.autoInject !== true) {
+          // Queda de energia com build antiga gravava autoInject=false por bug;
+          // o marcador ainda prova a intencao. Persiste para o proximo boot.
+          updateSharedSettings({ autoInject: true });
+        }
+        logger.info("boot", "autoInject: bypass estava ativo, reativando WireSock", {
+          autoInject: settingsBoot.autoInject === true,
+          sessao: sessaoAtiva(),
+        });
         try {
           await activateBypass({});
-          logger.info("wiresock", "boot.residual.revalidado", {});
+          assinaturaUltimaAtivacao = assinaturaAtivacao("");
+          logger.info("boot", "autoInject: bypass reativado");
         } catch (error) {
-          logger.error("wiresock", "boot.residual.falhou", { erro: String((error as Error)?.message ?? error) });
+          logger.error("boot", "autoInject falhou", {
+            erro: String((error as Error)?.message ?? error),
+          });
+          // Ativacao falhou apos meia limpeza: tenta deixar a rede usavel sem
+          // obrigar reboot (o filtro WFP per-app nao aparece no probe da GUI).
+          try {
+            await withWireSockLifecycle("boot.autoInject.rollback", () => recoverWireSockNetwork());
+          } catch (rollbackError) {
+            logger.error("boot", "autoInject.rollback falhou", {
+              erro: String((rollbackError as Error)?.message ?? rollbackError),
+            });
+          }
         }
-      } else {
-        clearSessionMarker();
+        refreshWindowStatus();
+        refreshTray().catch(() => {});
       }
     }
-    // Se uma sessao anterior morreu sem o quit limpo (PC desligado, crash), a injecao
-    // ficou orfa: reverte agora para o status nao mentir (bug: "Ativo" sem ter ativado).
-    // O sistema atual usa somente WireGuard por processo. Não reverter nem interpretar
-    // app.asar/_app.asar: esses arquivos podem pertencer ao Discord ou a outro mod.
-    // Se a GUI reabriu com o bypass ja ativo (netns/
-    // WireSock de uma sessao anterior sobrevivendo ao restart da janela), o vigia do tunel
-    // precisa retomar aqui — sem isto, so uma ativacao nova (clique) o arma.
+    // Se a GUI reabriu com o bypass ja ativo (netns/WireSock de uma sessao
+    // anterior sobrevivendo ao restart da janela), o vigia do tunel precisa
+    // retomar aqui — sem isto, so uma ativacao nova (clique) o arma.
     if (!isMac) {
       try {
         const statusInicial = IS_LINUX ? await linuxStatus() : getStatus();
@@ -658,56 +678,6 @@ if (windowsElevation !== "ok") {
     // boot falha em silencio com o checkbox marcado. Reescrever a cada
     // abertura cura (schtasks /Change idempotente). (issue: "nao abre mesmo ativando")
     syncStartupEntry();
-    // Boot: se o usuario deixou o bypass ativo na sessao passada (flag gravada na
-    // ativacao, zerada so no deactivate explicito) e a injecao nao esta no disco
-    // (o quit limpo restaura), reativa sozinho — sem esperar o clique no botao
-    // verde (relato do beta 1.1.11-beta.2). No Linux nao roda: a ativacao pode
-    // pedir elevacao, e prompt no boot e pior que o clique; la a injecao persiste
-    // no boot pelo intact-skip do revertOrphanedInjection.
-    if (false && !IS_LINUX && readSharedSettings().autoInject === true) {
-      const injetado = getDiscordInstalls().some((install) =>
-        withNoAsar(() =>
-          diskFs.existsSync(path.join(install.resources, "_app.asar")) &&
-          isOurInjection(install.resources),
-        ),
-      );
-      if (injetado) {
-        // Bypass ja injetado neste boot (nao passou pelo activateBypass() desta execucao):
-        // assinaturaUltimaAtivacao nasce "" a cada reinicio da GUI, entao sem isto a guarda
-        // de ativacao duplicada (ver "guarda de ativacao duplicada" abaixo, issue #145) fica
-        // cega logo apos QUALQUER reinicio da GUI — uma reativacao identica (mesma proxy/modo,
-        // clique ou re-chamada automatica) nao seria reconhecida como no-op e re-injetaria por
-        // cima de um bypass que ja estava certo, derrubando o gateway/RTC a toa. Reconstroi a
-        // assinatura a partir do que esta salvo no disco (a mesma fonte que activateBypass()
-        // usaria de qualquer forma) para a guarda valer desde o primeiro clique pos-boot.
-        assinaturaUltimaAtivacao = assinaturaAtivacao(String(readSharedSettings().proxy ?? ""));
-      } else {
-        const proxySalvo = String(readSharedSettings().proxy ?? "");
-        console.log("[boot] autoInject: bypass estava ativo e nao esta injetado, reativando");
-        void garantirTor()
-          .catch(() => ({ ok: false }))
-          .then(() => activateBypass({}, proxySalvo, false))
-          .then(() => {
-            console.log("[boot] autoInject: bypass reativado");
-            // A janela costuma carregar NO MEIO desta ativacao (o Tor demora
-            // segundos): sem este refresh o botao ficava em "Ativar" com o
-            // bypass ja de pe — e o clique nesse estado reinjetava por cima
-            // (a origem da duplicacao da #149, confirmada pelo testador na
-            // beta 4). Falha atualiza tambem: o botao tem que refletir o que
-            // deu errado.
-            refreshWindowStatus();
-            refreshTray().catch(() => { });
-          })
-          .catch((error: unknown) => {
-            console.error(
-              "[boot] autoInject falhou:",
-              error instanceof Error ? error.message : error,
-            );
-            refreshWindowStatus();
-            refreshTray().catch(() => { });
-          });
-      }
-    }
     // No KDE o watcher da bandeja (StatusNotifier) pode demorar a subir no login; esperar
     // evita o Tray cair para o GtkStatusIcon, que o Plasma 6 nao exibe.
     waitForStatusNotifier().then(createTray);
@@ -1362,13 +1332,31 @@ function startWindowsRouteWatchdog(direct: RouteProbeResult | null) {
 // UI dizia que a recuperacao terminou, mas o usuario ficava com o Discord
 // fechado (por exemplo, se o updater removeu o exe entre scan e spawn).
 async function startDiscordAndConfirm(installs: DiscordInstall[], operation: string): Promise<boolean> {
-  for (const install of installs) startDiscord(install);
-  if (!IS_WINDOWS || installs.length === 0) return true;
-  const started = await waitUntilDiscordRunning();
-  if (!started) {
-    logger.error("discord", "reinicio.timeout", { operation, timeout_ms: 10_000 });
+  if (!IS_WINDOWS || installs.length === 0) {
+    for (const install of installs) startDiscord(install);
+    return true;
   }
-  return started;
+  // Apos kill + tunel WireSock o Electron do Discord (e o Update.exe) costuma
+  // demorar mais que os 10s antigos — falso negativo derrubava o tunel e deixava
+  // WFP residual que so reboot limpava. Duas tentativas de ~20s cada.
+  const attempts = 2;
+  const tries = 80;
+  const delayMs = 250;
+  for (let round = 1; round <= attempts; round++) {
+    for (const install of installs) startDiscord(install);
+    const started = await waitUntilDiscordRunning(tries, delayMs);
+    if (started) return true;
+    logger.warn("discord", "reinicio.timeout", {
+      operation,
+      round,
+      timeout_ms: tries * delayMs,
+    });
+  }
+  logger.error("discord", "reinicio.timeout", {
+    operation,
+    timeout_ms: attempts * tries * delayMs,
+  });
+  return false;
 }
 
 // O _app.asar so existe quando alguem ja injetou: e o Discord original guardado de lado. Se ele
@@ -1378,88 +1366,6 @@ function isOurInjection(resources: string) {
     const indexJs = path.join(resources, "app.asar", "index.js");
     if (!diskFs.existsSync(indexJs)) return false;
     return diskFs.readFileSync(indexJs, "utf8").includes("golivebypass.js");
-  });
-}
-
-// Detecta qual mod esta no app.asar (Vencord, Equicord, Vesktop, Equibop, Legcord).
-// Vencord/Equicord injetam no Discord oficial patcheando o app.asar com um stub que faz
-// require do patcher deles. Vesktop/Equibop/Legcord sao clientes paralelos com a mesma
-// estrutura de <resources>/app.asar - nesse caso, quem nos informa o mod eh o flavour
-// (pasta %LOCALAPPDATA%/<Nome>) e nao o conteudo do app.asar.
-//
-// Retorna null se nao detectou nenhum mod conhecido, ou a string com o nome canonico.
-function detectOtherMod(resources: string, flavour?: string): string | null {
-  // Primeiro tenta adivinhar pelo flavour (cliente paralelo). Esses tem o mod ja
-  // embutido no executavel, nao no app.asar - o app.asar deles pode ser "deles mesmos"
-  // ou de um mod que o user injetou em cima.
-  if (flavour) {
-    const f = flavour.toLowerCase();
-    if (f === "vesktop") return "vesktop";
-    if (f === "equibop") return "equibop";
-    if (f === "legcord") return "legcord";
-  }
-
-  // Vencord/Equicord/Vesktop patcheado a mao: detecta lendo o stub do app.asar
-  // (ate 64KB) e procurando o caminho do patcher. O stub faz `require("<caminho>")`
-  // e o caminho contem o nome do mod.
-  return withNoAsar(() => {
-    const stub = path.join(resources, "app.asar");
-    if (!diskFs.existsSync(stub)) return null;
-    const stat = diskFs.statSync(stub);
-    if (stat.isDirectory()) return null;  // nosso: pasta, nao asar
-    if (stat.size > 65536) return null;   // stub de Vencord/Equicord tem < 1KB
-    let content: string;
-    try {
-      content = diskFs.readFileSync(stub, "utf8");
-    } catch {
-      return null;
-    }
-    const m = content.match(/require\("([^"]+)"\)/);
-    const target = m ? m[1].toLowerCase() : "";
-    if (target.includes("vencord")) return "vencord";
-    if (target.includes("equibop")) return "equibop";
-    if (target.includes("equicord")) return "equicord";
-    if (target.includes("vesktop")) return "vesktop";
-    return null;
-  });
-}
-
-// Vencord/Equicord convivem com a gente via plugin (goLiveBypass-vencord.zip).
-// Quando detectado no app.asar, NAO sobrescrevemos sem confirmacao explicita - o
-// user provavelmente tem outros plugins do Vencord/Equicord que vao deixar de funcionar.
-// Vesktop/Equibop/Legcord sao clientes paralelos: sobrescrever o app.asar deles os
-// transforma em "Discord com bypass" (perde a identidade, mas nao ha plugins do
-// user perdidos). O retorno e mais informativo do que restritivo.
-function isProtectedMod(name: string | null): boolean {
-  return name === "vencord" || name === "equicord";
-}
-
-function writeInjection(asar: string, proxyAddress: string) {
-  withNoAsar(() => {
-    diskFs.mkdirSync(asar);
-    diskFs.writeFileSync(
-      path.join(asar, "package.json"),
-      JSON.stringify({ name: "discord", main: "index.js", version: "1.0.0" }),
-    );
-    diskFs.writeFileSync(path.join(asar, "golivebypass.js"), bypassCode);
-    // O modo de rede e a porta do Tor embutido vao junto: o bypass le routeMode e torAddr.
-    // No modo tor o campo proxy fica vazio (a saida e o Tor, nao um proxy manual).
-    diskFs.writeFileSync(
-      path.join(asar, "settings.json"),
-      JSON.stringify({
-        enabled: true,
-        proxy: proxyAddress,
-        routeMode: readNetMode(),
-        torAddr: `127.0.0.1:${torPortaEmUso}`,
-        // Recuperacao e obrigatoria; mantemos a chave para atualizar tambem
-        // instalacoes que ainda tenham um settings.json legado com false.
-        autoRevive: true,
-      }),
-    );
-    diskFs.writeFileSync(
-      path.join(asar, "index.js"),
-      `require('./golivebypass.js');`,
-    );
   });
 }
 
@@ -1490,16 +1396,6 @@ function reescreverSettingsInjetado(patch: Record<string, unknown>): number {
     if (ok) reescritos++;
   }
   return reescritos;
-}
-
-// Troca de modo com o bypass ativo: o runtime le as settings UMA VEZ, no boot do
-// Discord, e o settings.json dentro do asar so era reescrito na ATIVACAO. Quem
-// trocava de modo no seletor ficava com o runtime no modo velho atraves de
-// reinicios do Discord (issue #121: GUI em tor, runtime em free, 80 candidatas
-// mortas, gateway direto). Reescrever so o settings.json deixa o disco verdadeiro
-// para o proximo start.
-function updateInjectedNetSettings(mode: string): number {
-  return reescreverSettingsInjetado({ routeMode: mode, torAddr: `127.0.0.1:${torPortaEmUso}` });
 }
 
 // ------------------------------------------------------------------ fila serial: ativar/desativar
@@ -1707,14 +1603,13 @@ async function executarAtivacao(event: any) {
     throw new Error("O Discord não iniciou após preparar o túnel. A rota foi restaurada; verifique a instalação do Discord e tente novamente.");
   }
 
-  // Registra a sessao: o bypass so se desfaz no quit limpo; se o PC desligar no meio, o
-  // boot seguinte encontra este marcador e reverte a injecao orfa.
+  // Registra a sessao: se o PC desligar no meio, o boot seguinte reativa pelo
+  // marcador (mesmo com autoInject legado false).
   writeSessionMarker(installs);
-  // Flag de "estava ativo": o boot seguinte re-injeta sozinho se a injecao nao
-  // estiver no disco (quit limpo restaura, e o usuario nao precisa apertar o
-  // botao de novo — relato do beta 1.1.11-beta.2). Zerada so no deactivate
-  // explicito do usuario.
-  updateSharedSettings({ autoInject: false });
+  // Flag de "estava ativo": quit limpo derruba o tunel WireSock, mas o boot
+  // seguinte reativa sozinho — o usuario nao precisa apertar o botao de novo.
+  // Zerada so no deactivate explicito.
+  updateSharedSettings({ autoInject: true });
   // Ativacao concluiu de verdade: guarda a assinatura para a guarda de duplicada
   // (ver topo da funcao).
   assinaturaUltimaAtivacao = assinatura;
@@ -2181,9 +2076,10 @@ async function linuxActivate(onChunk: (c: string) => void) {
   } catch {
     // sem marcador o boot seguinte nao consegue reverter; a injecao orfa fica para a mao
   }
-  // Flag de "estava ativo" (o quit limpo do Linux restaura a injecao; o boot
-  // seguinte re-injeta pela flag). Zerada so no deactivate explicito.
-  updateSharedSettings({ autoInject: false });
+  // Flag de "estava ativo" (quit limpo do Linux desfaz o netns; a flag fica
+  // pronta se no futuro o boot Linux puder reativar sem prompt). Zerada so no
+  // deactivate explicito. Hoje o boot Linux NAO auto-reativa (elevacao).
+  updateSharedSettings({ autoInject: true });
   iniciarWgStatsWatchdog(linuxWgStats);
   startLinuxHealthWatchdog();
   linuxStatusCache = null;
@@ -2358,122 +2254,11 @@ function sessaoAtiva(): boolean {
   }
 }
 
-// Reverte injecoes deixadas por uma sessao anterior que morreu sem o quit limpo (PC
-// desligado, crash). So mexe onde a injecao e NOSSA, e nao inicia o Discord a toa: se ele
-// ja estava aberto (o caso do status falso ativo), fecha, restaura e reabre.
-async function revertOrphanedInjection() {
-  let data: { installs?: unknown } | null = null;
-  try {
-    data = JSON.parse(fs.readFileSync(markerFile(), "utf8"));
-  } catch {
-    // Sem marker nao ha sessao registrada — no Linux ainda conferimos o status abaixo,
-    // porque a ativacao pode ter vindo do script standalone (fora da GUI).
-    data = null;
-  }
-
-  // No Linux a injecao vive no script (com permissoes flatpak/sudo); o --restore reverte
-  // sem reabrir o Discord no login. MAS: se o patcher do INSTALL_DIR continua no lugar,
-  // a injecao no disco nao e "orfã" — e o bypass persistente sobrevivendo ao boot.
-  // Reverter fazia o Discord abrir injetado, a GUI restaura-lo vanilla e o usuario
-  // apertar o botao de novo a cada boot sem quit limpo (relato beta 1.1.11-beta.2).
-  if (IS_LINUX) {
-    const patcherPresente = withNoAsar(() =>
-      diskFs.existsSync(path.join(settingsDir(), "golivebypass.js")),
-    );
-    if (patcherPresente) {
-      console.log("[restore] injecao do boot anterior intacta (patcher presente), mantendo");
-      return; // mantem o marcador: a sessao continua valida
-    }
-    clearSessionMarker();
-    if (data === null) {
-      // A ativacao pode ter vindo do script standalone (fora da GUI), sem marker nenhum.
-      // O status e a fonte da verdade: "nosso" parado no disco (nenhum cliente aberto) e
-      // orfa e o boot limpa; com cliente aberto (ACTIVE) ou outro mod no lugar, nao mexe.
-      const status = await linuxStatus().catch(() => "NOT_FOUND");
-      if (status === "ACTIVE" || status === "OTHER_MOD" || status === "NOT_FOUND") return;
-    }
-    const { code, stderr } = await runScript(["--restore"]);
-    if (code !== 0) {
-      console.error("[restore] falha ao reverter injecao orfa:", stderr);
-    }
-    return;
-  }
-
-  if (!Array.isArray(data?.installs) || data.installs.length === 0) return;
-
-  const resourcesList = data.installs.filter((r): r is string => typeof r === "string");
-  if (resourcesList.length === 0) return;
-
-  const atuais = getDiscordInstalls();
-  const alvos: DiscordInstall[] = [];
-  let intactas = 0;
-  for (const resources of resourcesList) {
-    const install =
-      atuais.find((a) => a.resources === resources) ??
-      ({ flavour: "", resources, exePath: "", bundlePath: undefined } as DiscordInstall);
-    // So age onde a injecao ainda e a nossa (outro mod tomou o lugar = nao mexe).
-    const temOriginal = withNoAsar(() => diskFs.existsSync(path.join(resources, "_app.asar")));
-    if (!temOriginal || !isOurInjection(resources)) continue;
-    // A injecao no Windows e autocontida (stub + patcher + settings dentro do asar):
-    // se os arquivos internos estao la, ela nao e "orfã" — e o bypass persistente
-    // sobrevivendo ao boot sem quit limpo. Reverter fazia o Discord abrir injetado,
-    // a GUI restaura-lo vanilla e o usuario apertar o botao de novo a cada boot
-    // (relato beta 1.1.11-beta.2). So reverte quando os arquivos quebrarem de verdade
-    // (escrita parcial num crash, por exemplo).
-    const intacta = withNoAsar(() => {
-      try {
-        const bypassJs = diskFs.statSync(path.join(resources, "app.asar", "golivebypass.js"));
-        return bypassJs.isFile() && bypassJs.size > 1024 &&
-          diskFs.existsSync(path.join(resources, "app.asar", "settings.json"));
-      } catch {
-        return false;
-      }
-    });
-    if (intacta) {
-      intactas++;
-      console.log("[restore] injecao do boot anterior intacta, mantendo:", resources);
-      continue;
-    }
-    alvos.push(install);
-  }
-
-  if (alvos.length === 0) {
-    // Nada quebrado para reverter. Se havia injecao nossa intacta, o marcador
-    // permanece: a sessao continua valida para um boot futuro que ache problemas.
-    if (intactas === 0) clearSessionMarker();
-    return;
-  }
-
-  const estavaRodando = discordIsRunning();
-  if (estavaRodando) await killDiscord();
-
-  for (const install of alvos) {
-    const asar = path.join(install.resources, "app.asar");
-    const originalAsar = path.join(install.resources, "_app.asar");
-    try {
-      await safeRemove(asar);
-      await safeRename(originalAsar, asar);
-      clearBundleQuarantine(install.bundlePath);
-      console.log("[restore] injecao orfa revertida:", install.resources);
-    } catch (error) {
-      console.error("[restore] nao consegui reverter:", install.resources, error);
-    }
-  }
-
-  clearSessionMarker();
-  if (estavaRodando) {
-    for (const install of alvos) startDiscord(install);
-  }
-}
-
 // =============================================================================== Tor embutido
-// O "modo Tor" da GUI pode funcionar sem o Tor instalado: baixa o daemon oficial do
-// Tor Project, extrai para a pasta do GoLiveBypass e sobe como processo filho.
-//
-// O asset com o daemon SOZINHO (sem o navegador inteiro) e o "expert bundle" — hospedado no
-// archive oficial (archive.torproject.org), versao "13.5", que foi a ultima serie a publicar
-// esse pacote (~31MB, com geoip e as libs compartilhadas do tor). O dist.torproject.org
-// atual (15.x/16.x) so publica o navegador inteiro (~137MB), pesado demais para isso.
+// LEGADO: o modo Tor/PAC foi substituido por WireGuard. O codigo abaixo ainda
+// mora no bundle (download/spawn) mas nao e chamado pelo fluxo WireSock atual.
+// Remocao completa fica para uma limpeza dedicada — apagar agora quebra hashes
+// e caminhos que testes de fonte ainda referenciam indiretamente.
 
 const TOR_BUNDLE = "13.5";
 const TOR_PORTA = 9060; // dedicada, para nao conflitar com um Tor do sistema (9050)

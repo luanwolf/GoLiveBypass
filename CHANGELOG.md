@@ -4,6 +4,15 @@ Todas as mudanças notáveis deste projeto são documentadas aqui. O formato seg
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o versionamento
 segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [2.2.1] - 2026-09-22
+
+### Corrigido
+- **Bypass volta sozinho no boot (Windows):** após reinício, desligamento ou queda de energia, o WireSock reativa se o bypass estava ligado (`autoInject` + marcador de sessão). Antes a flag era gravada como `false` e o caminho de boot estava desligado.
+- **Ativação sem forçar reboot:** timeout/retry maiores ao abrir o Discord depois do túnel, e limpeza WireSock mais agressiva (`reset-network-lock` elevado) para não deixar filtro WFP residual que só reboot limpava.
+
+### Alterado
+- Ícone do app, bandeja e arte do instalador NSIS atualizados (rosa no `assets/icon.png`).
+
 ## [2.2.0] - 2026-09-07
 
 ### Alterado

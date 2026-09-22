@@ -1,7 +1,7 @@
 {
   "name": "golive-gui",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.2.1",
   "desktopName": "com.golivebypass.gui.desktop",
   "description": "GoLiveBypass",
   "author": "bezumiya",
@@ -10,9 +10,10 @@
   "scripts": {
     "dev": "vite",
     "compile": "node scripts/sync-bypass.mjs && npm run build:proton && tsc && vite build",
+    "icons": "node build/gen-icons.mjs && powershell -ExecutionPolicy Bypass -File build/build-installer-images.ps1",
     "build:proton": "node scripts/build-proton.mjs",
-    "build": "npm run compile && electron-builder --publish never",
-    "build:win": "npm run compile && electron-builder --win --x64 --publish never",
+    "build": "npm run icons && npm run compile && electron-builder --publish never",
+    "build:win": "npm run icons && npm run compile && electron-builder --win --x64 --publish never",
     "build:mac": "npm run compile && electron-builder --mac --arm64 --publish never",
     "preview": "vite preview",
     "sync-bypass": "node scripts/sync-bypass.mjs",
@@ -116,6 +117,7 @@
   "devDependencies": {
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vite-plugin-electron": "^1.1.1",

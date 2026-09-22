@@ -69,11 +69,12 @@ describe("WireSock no Windows", () => {
   it("encerra a arvore do cliente e aguarda o servico sair antes de confirmar a limpeza", () => {
     const src = fs.readFileSync(path.resolve(process.cwd(), "electron/wiresock.ts"), "utf8");
     expect(src).toContain("taskkill.exe /F /T /IM wiresock-client.exe");
-    expect(src).toContain("for (let pass = 0; pass < 2; pass++)");
+    expect(src).toContain("for (let pass = 0; pass < 3; pass++)");
     expect(src).toContain("residuo encontrado; repetindo limpeza elevada");
     expect(src).toContain("await esperar(250)");
     expect(src).toContain("sc.exe stop ${name}");
     expect(src).toContain("stopWireSockServiceElevated");
+    expect(src).toContain("resetWireSockNetworkLockElevated");
     expect(src).toContain("-Verb RunAs");
     expect(src).toContain("-PassThru");
     expect(src).toContain("windowsHide: false");

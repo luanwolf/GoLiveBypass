@@ -79,8 +79,18 @@ describe("guarda de ativacao duplicada", () => {
     // Relato do testador na beta 4 (#149): a janela carregava no meio da
     // reativacao e o botao ficava em "Ativar" com o bypass ja de pe.
     const src = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
-    expect(src).toMatch(/autoInject: bypass reativado"[\s\S]{0,600}refreshWindowStatus\(\);/);
-    expect(src).toMatch(/autoInject falhou:[\s\S]{0,600}refreshWindowStatus\(\);/);
+    expect(src).toMatch(/autoInject: bypass reativado"[\s\S]{0,800}refreshWindowStatus\(\);/);
+    expect(src).toMatch(/autoInject falhou"[\s\S]{0,1200}refreshWindowStatus\(\);/);
+  });
+
+  it("grava autoInject=true na ativacao e reativa WireSock no boot Windows", () => {
+    const src = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
+    const activation = src.slice(src.indexOf("async function executarAtivacao"), src.indexOf("async function deactivateAll"));
+    expect(activation).toContain('updateSharedSettings({ autoInject: true })');
+    expect(activation).not.toContain('updateSharedSettings({ autoInject: false })');
+    expect(src).toContain("querAtivo = settingsBoot.autoInject === true || sessaoAtiva()");
+    expect(src).not.toContain("if (false && !IS_LINUX");
+    expect(src).not.toContain("void garantirTor()");
   });
 
   it("o boot migra o estado legado para WireGuard", () => {
@@ -155,8 +165,8 @@ describe("guarda de ativacao duplicada", () => {
     const src = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
     expect(src).toContain("windowsRouteGeneration += 1;");
     expect(src).toContain("assertWindowsRouteGeneration(generation)");
-    expect(src).toContain('if (IS_WINDOWS && sessaoAtiva())');
-    expect(src).toContain('await activateBypass({});');
+    expect(src).toContain("querAtivo = settingsBoot.autoInject === true || sessaoAtiva()");
+    expect(src).toContain("await activateBypass({});");
     const statusStart = src.indexOf("function getStatus():");
     const status = src.slice(statusStart, src.indexOf("async function linuxStatus", statusStart));
     expect(status).toContain('return "CONNECTING"');
@@ -230,8 +240,9 @@ describe("guarda de ativacao duplicada", () => {
   it("nao declara recuperacao concluida se o Discord nao voltar depois da rede", () => {
     const src = fs.readFileSync(path.resolve(process.cwd(), "electron/main.ts"), "utf8");
     const restart = src.slice(src.indexOf("async function startDiscordAndConfirm"), src.indexOf("function isOurInjection"));
-    expect(restart).toContain("waitUntilDiscordRunning()");
+    expect(restart).toContain("waitUntilDiscordRunning(tries, delayMs)");
     expect(restart).toContain('"reinicio.timeout"');
+    expect(restart).toContain("const attempts = 2");
 
     const deactivation = src.slice(src.indexOf("async function deactivateAll"), src.indexOf("function getStatus"));
     expect(deactivation).toContain('startDiscordAndConfirm(installs, "desativacao")');
